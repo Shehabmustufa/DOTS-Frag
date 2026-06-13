@@ -1,0 +1,28 @@
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  flex: 1;
+  padding: 16px;
+  border-radius: 8px;
+  color: white;
+  
+  .stat-label {
+    display: block;
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 8px;
+  }
+  
+  .stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 600;
+  }
+}
+
+.stat-danger { background: linear-gradient(135deg, #f44336, #e53935); }
+.stat-warning { background: linear-gradient(135deg, #ff9800, #f57c00); }

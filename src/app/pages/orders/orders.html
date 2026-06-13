@@ -1,0 +1,96 @@
+<div class="page-container">
+  <div class="page-header">
+    <h2>📦 Orders</h2>
+    <button class="btn btn-primary" (click)="openAdd()">+ New Order</button>
+  </div>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Loading orders...</span>
+  </div>
+
+  <div class="table-responsive" *ngIf="!loading">
+    <table class="table table-hover">
+      <thead>
+        <tr><th>Order #</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let o of orders">
+          <tr (click)="toggleExpand(o.id!)" style="cursor:pointer">
+            <td><strong>#{{ o.id }}</strong></td>
+            <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
+            <td>{{ o.order_items?.length || 0 }}</td>
+            <td><strong>{{ orderTotal(o) | currency:'EGP':'symbol':'1.0-0' }}</strong></td>
+            <td (click)="$event.stopPropagation()">
+              <select class="form-select form-select-sm" [(ngModel)]="o.order_status" (ngModelChange)="updateStatus(o, $event)">
+                <option value="placed">Placed</option>
+                <option value="delivery">Delivery</option>
+                <option value="delivered">Delivered</option>
+              </select>
+            </td>
+            <td>{{ o.created_at | date:'short' }}</td>
+            <td (click)="$event.stopPropagation()">
+              <button class="btn btn-sm btn-outline-danger" (click)="remove(o.id!)">🗑</button>
+            </td>
+          </tr>
+          <tr *ngIf="expandedOrderId === o.id" class="expanded-row">
+            <td colspan="7">
+              <div class="order-items-detail">
+                <strong>Items:</strong>
+                <ul class="mb-0 mt-2">
+                  <li *ngFor="let item of o.order_items">
+                    {{ item.perfume?.brand?.name }} {{ item.perfume?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
+                  </li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+        <tr *ngIf="orders.length === 0">
+          <td colspan="7" class="text-center text-muted py-4">No orders yet.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div *ngIf="showModal">
+  <div class="modal-backdrop-custom" (click)="showModal=false"></div>
+  <div class="modal-panel modal-panel-lg">
+    <div class="modal-panel-header">
+      <h5>New Order</h5>
+      <button class="btn-close" (click)="showModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="mb-3">
+        <label class="form-label">Customer *</label>
+        <select class="form-select" [(ngModel)]="selectedCustomerId">
+          <option [ngValue]="null">-- Select --</option>
+          <option *ngFor="let c of customers" [ngValue]="c.id">{{ c.name }} ({{ c.mobile_number }})</option>
+        </select>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong>Items</strong>
+        <button class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
+      </div>
+      <div *ngFor="let item of items; let i = index" class="order-item-row">
+        <select class="form-select form-select-sm" [(ngModel)]="item.perfume_id">
+          <option [ngValue]="null">-- Perfume --</option>
+          <option *ngFor="let p of perfumes" [ngValue]="p.id">{{ p.brand?.name }} - {{ p.name }}</option>
+        </select>
+        <select class="form-select form-select-sm" [(ngModel)]="item.decant_size_ml">
+          <option [ngValue]="5">5ml</option>
+          <option [ngValue]="10">10ml</option>
+        </select>
+        <input type="number" class="form-control form-control-sm qty-input" [(ngModel)]="item.quantity" min="1">
+        <button class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" *ngIf="items.length > 1">✕</button>
+      </div>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary me-2" (click)="showModal=false">Cancel</button>
+      <button class="btn btn-primary" (click)="save()">Place Order</button>
+    </div>
+  </div>
+</div>

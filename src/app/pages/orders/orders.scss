@@ -1,0 +1,44 @@
+.expanded-row {
+  td {
+    background: #f8f9fa;
+    padding: 16px 20px !important;
+  }
+}
+
+.order-items-detail {
+  ul {
+    list-style: none;
+    padding: 0;
+
+    li {
+      padding: 8px 12px;
+      background: white;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      border: 1px solid #e9ecef;
+      font-size: 14px;
+    }
+  }
+}
+
+.order-item-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+
+  select {
+    flex: 2;
+  }
+
+  .qty-input {
+    width: 70px;
+    flex: 0 0 70px;
+  }
+
+  button {
+    flex-shrink: 0;
+  }
+}

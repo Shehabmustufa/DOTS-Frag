@@ -1,0 +1,17 @@
+.table {
+  margin-top: 16px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+a {
+  color: #3b82f6;
+  text-decoration: none;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+}

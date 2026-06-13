@@ -1,0 +1,69 @@
+<div class="page-container">
+  <div class="page-header">
+    <h2>🏷️ Brands & Companies</h2>
+    <button class="btn btn-primary" (click)="showAddCompanyForm = !showAddCompanyForm">+ Add Company</button>
+  </div>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Loading brands...</span>
+  </div>
+
+  <div *ngIf="showAddCompanyForm && !loading" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h5>Add New Company</h5>
+    <input class="form-control mb-2" [(ngModel)]="newCompany.name" placeholder="Company name">
+    <input class="form-control mb-2" [(ngModel)]="newCompany.country" placeholder="Country">
+    <button class="btn btn-primary" (click)="addCompany()">Add</button>
+    <button class="btn btn-secondary" (click)="showAddCompanyForm = false">Cancel</button>
+  </div>
+
+  <div *ngFor="let company of companies" [hidden]="loading" style="background: white; margin-bottom: 16px; border-radius: 8px; overflow: hidden;">
+    <div style="padding: 16px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" (click)="toggleCompany(company.id!)">
+      <div>
+        <h5 style="margin: 0;">{{ company.name }}</h5>
+        <small style="color: #888;">{{ company.country }}</small>
+      </div>
+      <span>{{ expandedCompanyId === company.id ? '▼' : '▶' }}</span>
+    </div>
+
+    <div *ngIf="expandedCompanyId === company.id" style="padding: 16px; border-top: 1px solid #e0e0e0;">
+      <div *ngFor="let brand of getCompanyBrands(company.id!)" style="padding: 12px; background: #fafafa; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>{{ brand.name }}</strong>
+          <p *ngIf="brand.description" style="margin: 4px 0 0 0; color: #888; font-size: 12px;">{{ brand.description }}</p>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-sm btn-outline-secondary" (click)="openEditBrand(brand)">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" (click)="remove(brand.id!)">Delete</button>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="openAddBrand(company.id!)">+ Add Brand</button>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="showModal">
+  <div class="modal-backdrop-custom" (click)="showModal=false"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>{{ isEdit ? 'Edit Brand' : 'Add Brand' }}</h5>
+      <button class="btn-close" (click)="showModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="mb-3">
+        <label class="form-label">Brand Name</label>
+        <input class="form-control" [(ngModel)]="form.name" placeholder="e.g. Khamrah">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" [(ngModel)]="form.description" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary" (click)="showModal=false">Cancel</button>
+      <button class="btn btn-primary" (click)="save()">{{ isEdit ? 'Update' : 'Add' }}</button>
+    </div>
+  </div>
+</div>
