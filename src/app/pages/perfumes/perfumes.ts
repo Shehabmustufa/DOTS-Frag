@@ -24,10 +24,11 @@ export class Perfumes implements OnInit {
   editingRowId: number | null = null;
   savingRowId: number | null = null;
   selectedCompanyId: number | null = null;
-  
+
   form: Partial<Perfume> = {
     name: '', brand_id: undefined, full_ml: 0, current_ml: 0,
-    bought_from: '', price_original: 0, price_5ml: 0, price_10ml: 0,
+    bought_from: '', price_original: 0, discount_percentage: 0,
+    price_5ml: 0, price_10ml: 0, price_30ml: 0,
     bottles_available: 1, bottles_bought: 1, perfume_status: 'available'
   };
 
@@ -38,9 +39,7 @@ export class Perfumes implements OnInit {
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() { 
-    this.load(); 
-  }
+  ngOnInit() { this.load(); }
 
   async load() {
     this.error = '';
@@ -62,14 +61,6 @@ export class Perfumes implements OnInit {
     }
   }
 
-  getBrandName(brandId: number): string {
-    return this.brands.find(b => b.id === brandId)?.name || 'Unknown';
-  }
-
-  getCompanyName(companyId: number | undefined): string {
-    return this.companies.find(c => c.id === companyId)?.name || '—';
-  }
-
   getFilteredBrands(): Brand[] {
     if (!this.selectedCompanyId) return this.brands;
     return this.brands.filter(b => b.company_id === this.selectedCompanyId);
@@ -88,13 +79,29 @@ export class Perfumes implements OnInit {
     return 'status-high';
   }
 
+  getDiscountedPrice(price: number, discount: number): number {
+    if (!discount) return price;
+    return Math.round(price * (1 - discount / 100));
+  }
+
+  applyDiscount() {
+    const d = Number(this.form.discount_percentage) || 0;
+    if (d > 0 && this.form.price_original) {
+      const orig = Number(this.form.price_original);
+      this.form.price_5ml = Math.round(Number(this.form.price_5ml || 0) * (1 - d / 100));
+      this.form.price_10ml = Math.round(Number(this.form.price_10ml || 0) * (1 - d / 100));
+      this.form.price_30ml = Math.round(Number(this.form.price_30ml || 0) * (1 - d / 100));
+    }
+  }
+
   openAdd() {
     this.isEdit = false;
     this.editId = null;
     this.selectedCompanyId = null;
     this.form = {
       name: '', brand_id: undefined, full_ml: 0, current_ml: 0,
-      bought_from: '', price_original: 0, price_5ml: 0, price_10ml: 0,
+      bought_from: '', price_original: 0, discount_percentage: 0,
+      price_5ml: 0, price_10ml: 0, price_30ml: 0,
       bottles_available: 1, bottles_bought: 1, perfume_status: 'available'
     };
     this.showModal = true;
@@ -108,7 +115,8 @@ export class Perfumes implements OnInit {
     this.form = {
       name: p.name, brand_id: p.brand_id, full_ml: p.full_ml, current_ml: p.current_ml,
       bought_from: p.bought_from, price_original: p.price_original,
-      price_5ml: p.price_5ml, price_10ml: p.price_10ml,
+      discount_percentage: p.discount_percentage || 0,
+      price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
       bottles_available: p.bottles_available, bottles_bought: p.bottles_bought,
       perfume_status: p.perfume_status,
     };
@@ -134,13 +142,13 @@ export class Perfumes implements OnInit {
 
   async saveInlineEdit(p: Perfume, field: string, value: any) {
     if (value === undefined || value === null || value === '') return;
-    
+
     this.savingRowId = p.id!;
     this.error = '';
     try {
       const updates: any = {};
-      updates[field] = field.startsWith('price') || field.startsWith('full') || field.startsWith('current') || field.startsWith('bottles') 
-        ? Number(value) 
+      updates[field] = field.startsWith('price') || field.startsWith('full') || field.startsWith('current') || field.startsWith('bottles') || field === 'discount_percentage'
+        ? Number(value)
         : value;
       await this.svc.update(p.id!, updates);
       Object.assign(p, updates);

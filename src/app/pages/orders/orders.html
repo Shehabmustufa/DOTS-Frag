@@ -4,6 +4,10 @@
     <button class="btn btn-primary" (click)="openAdd()">+ New Order</button>
   </div>
 
+  <div class="mb-3">
+    <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by customer name, mobile number, or order #...">
+  </div>
+
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
   <div *ngIf="loading" class="loading-container">
@@ -17,7 +21,7 @@
         <tr><th>Order #</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr>
       </thead>
       <tbody>
-        <ng-container *ngFor="let o of orders">
+        <ng-container *ngFor="let o of filteredOrders">
           <tr (click)="toggleExpand(o.id!)" style="cursor:pointer">
             <td><strong>#{{ o.id }}</strong></td>
             <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
@@ -48,14 +52,15 @@
             </td>
           </tr>
         </ng-container>
-        <tr *ngIf="orders.length === 0">
-          <td colspan="7" class="text-center text-muted py-4">No orders yet.</td>
+        <tr *ngIf="filteredOrders.length === 0">
+          <td colspan="7" class="text-center text-muted py-4">No orders found.</td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
 
+<!-- New Order Modal -->
 <div *ngIf="showModal">
   <div class="modal-backdrop-custom" (click)="showModal=false"></div>
   <div class="modal-panel modal-panel-lg">
@@ -66,23 +71,34 @@
     <div class="modal-panel-body">
       <div class="mb-3">
         <label class="form-label">Customer *</label>
-        <select class="form-select" [(ngModel)]="selectedCustomerId">
-          <option [ngValue]="null">-- Select --</option>
-          <option *ngFor="let c of customers" [ngValue]="c.id">{{ c.name }} ({{ c.mobile_number }})</option>
-        </select>
+        <div class="search-dropdown">
+          <input class="form-control" [(ngModel)]="customerSearch" placeholder="Search customer name or mobile..."
+            (focus)="customerDropdownOpen=true" (input)="customerDropdownOpen=true; selectedCustomerId=null">
+          <div class="search-dropdown-list" *ngIf="customerDropdownOpen && filteredCustomers.length > 0">
+            <div class="search-dropdown-item" *ngFor="let c of filteredCustomers" (mousedown)="selectCustomer(c)">
+              <strong>{{ c.name }}</strong> <span class="text-muted">{{ c.mobile_number }}</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="d-flex justify-content-between align-items-center mb-2">
         <strong>Items</strong>
         <button class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
       </div>
       <div *ngFor="let item of items; let i = index" class="order-item-row">
-        <select class="form-select form-select-sm" [(ngModel)]="item.perfume_id">
-          <option [ngValue]="null">-- Perfume --</option>
-          <option *ngFor="let p of perfumes" [ngValue]="p.id">{{ p.brand?.name }} - {{ p.name }}</option>
-        </select>
-        <select class="form-select form-select-sm" [(ngModel)]="item.decant_size_ml">
+        <div class="search-dropdown" style="flex:2">
+          <input class="form-control form-control-sm" [(ngModel)]="perfumeSearches[i]" placeholder="Search perfume..."
+            (focus)="perfumeDropdownOpen=i" (input)="perfumeDropdownOpen=i; item.perfume_id=null">
+          <div class="search-dropdown-list" *ngIf="perfumeDropdownOpen === i && getFilteredPerfumes(i).length > 0">
+            <div class="search-dropdown-item" *ngFor="let p of getFilteredPerfumes(i)" (mousedown)="selectPerfume(i, p)">
+              <strong>{{ p.brand?.name }}</strong> - {{ p.name }}
+            </div>
+          </div>
+        </div>
+        <select class="form-select form-select-sm" [(ngModel)]="item.decant_size_ml" style="flex:1">
           <option [ngValue]="5">5ml</option>
           <option [ngValue]="10">10ml</option>
+          <option [ngValue]="30">30ml</option>
         </select>
         <input type="number" class="form-control form-control-sm qty-input" [(ngModel)]="item.quantity" min="1">
         <button class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" *ngIf="items.length > 1">✕</button>

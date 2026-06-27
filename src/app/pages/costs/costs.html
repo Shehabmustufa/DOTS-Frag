@@ -5,14 +5,30 @@
   </div>
 
   <div class="stats-row mb-3">
-    <div class="stat-card stat-danger">
-      <span class="stat-label">Total Spent</span>
-      <span class="stat-value">{{ totalCosts | currency:'EGP':'symbol':'1.0-0' }}</span>
+    <div class="stat-card stat-success">
+      <span class="stat-label">Total Paid</span>
+      <span class="stat-value">{{ totalPaid | currency:'EGP':'symbol':'1.0-0' }}</span>
     </div>
     <div class="stat-card stat-warning">
       <span class="stat-label">Pending Payment</span>
-      <span class="stat-value">{{ unpaidTotal | currency:'EGP':'symbol':'1.0-0' }}</span>
+      <span class="stat-value">{{ totalPending | currency:'EGP':'symbol':'1.0-0' }}</span>
     </div>
+    <div class="stat-card stat-danger">
+      <span class="stat-label">Total (All)</span>
+      <span class="stat-value">{{ totalAll | currency:'EGP':'symbol':'1.0-0' }}</span>
+    </div>
+  </div>
+
+  <div class="filter-row mb-3">
+    <div class="filter-group">
+      <label class="form-label mb-0">From</label>
+      <input type="date" class="form-control form-control-sm" [(ngModel)]="filterFrom">
+    </div>
+    <div class="filter-group">
+      <label class="form-label mb-0">To</label>
+      <input type="date" class="form-control form-control-sm" [(ngModel)]="filterTo">
+    </div>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo">Clear</button>
   </div>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
@@ -22,31 +38,45 @@
     <span>Loading costs...</span>
   </div>
 
-  <div class="table-responsive" *ngIf="!loading">
-    <table class="table table-hover">
-      <thead>
-        <tr><th>Title</th><th>Category</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let c of costs">
-          <td>{{ c.title }}</td>
-          <td><span class="badge bg-secondary">{{ c.category }}</span></td>
-          <td><strong>{{ c.amount | currency:'EGP':'symbol':'1.0-0' }}</strong></td>
-          <td><span [class]="c.payment_status === 'paid' ? 'badge bg-success' : 'badge bg-warning text-dark'">{{ c.payment_status }}</span></td>
-          <td>{{ c.created_at | date:'short' }}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(c)">✎ Edit</button>
-            <button class="btn btn-sm btn-outline-danger" (click)="remove(c.id!)">🗑</button>
-          </td>
-        </tr>
-        <tr *ngIf="costs.length === 0">
-          <td colspan="6" class="text-center text-muted py-4">No costs yet.</td>
-        </tr>
-      </tbody>
-    </table>
+  <div *ngIf="!loading">
+    <div *ngIf="dayGroups.length === 0" class="text-center text-muted py-4">
+      No costs found.
+    </div>
+
+    <div *ngFor="let group of dayGroups" class="day-group">
+      <div class="day-header">
+        <span>{{ group.label }}</span>
+        <span class="day-total">{{ group.total | currency:'EGP':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>Title</th><th>Category</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of getPagedCosts(group)">
+              <td>{{ c.title }}</td>
+              <td><span class="badge bg-secondary">{{ c.category }}</span></td>
+              <td><strong>{{ c.amount | currency:'EGP':'symbol':'1.0-0' }}</strong></td>
+              <td><span [class]="c.payment_status === 'paid' ? 'badge bg-success' : 'badge bg-warning text-dark'">{{ c.payment_status }}</span></td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(c)">✎</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="remove(c.id!)">🗑</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="day-pagination" *ngIf="totalPages(group) > 1">
+        <button class="btn btn-sm btn-outline-secondary" [disabled]="group.page <= 1" (click)="group.page = group.page - 1">← Prev</button>
+        <span class="text-muted">Page {{ group.page }} of {{ totalPages(group) }}</span>
+        <button class="btn btn-sm btn-outline-secondary" [disabled]="group.page >= totalPages(group)" (click)="group.page = group.page + 1">Next →</button>
+      </div>
+    </div>
   </div>
 </div>
 
+<!-- Add/Edit Modal -->
 <div *ngIf="showModal">
   <div class="modal-backdrop-custom" (click)="showModal=false"></div>
   <div class="modal-panel">

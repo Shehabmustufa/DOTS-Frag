@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CustomerService, Customer } from '../../core/services/customer';
+import { OrderService, Order } from '../../core/services/order';
 
 @Component({
   selector: 'app-customers',
@@ -21,7 +22,16 @@ export class Customers implements OnInit {
 
   foundViaOptions = ['direct', 'social media', 'referral', 'search', 'other'];
 
-  constructor(private svc: CustomerService, private cdr: ChangeDetectorRef) {}
+  showOrdersModal = false;
+  selectedCustomer: Customer | null = null;
+  customerOrders: Order[] = [];
+  loadingOrders = false;
+
+  constructor(
+    private svc: CustomerService,
+    private orderSvc: OrderService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() { this.load(); }
 
@@ -36,6 +46,33 @@ export class Customers implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  async viewOrders(c: Customer) {
+    this.selectedCustomer = c;
+    this.customerOrders = [];
+    this.loadingOrders = true;
+    this.showOrdersModal = true;
+    try {
+      this.customerOrders = await this.orderSvc.getByCustomer(c.id!);
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingOrders = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  orderTotal(o: Order): number {
+    if (!o.order_items) return 0;
+    return o.order_items.reduce((sum, item) => {
+      if (!item.perfume) return sum;
+      let price = 0;
+      if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
+      else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
+      else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
+      return sum + price * item.quantity;
+    }, 0);
   }
 
   openAdd() {

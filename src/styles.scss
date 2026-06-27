@@ -113,3 +113,66 @@ html, body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.search-dropdown {
+  position: relative;
+}
+
+.search-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10001;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.search-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:hover {
+    background: #e9ecef;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.customer-orders-list {
+  .order-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border: 1px solid #e9ecef;
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .order-card-items {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+
+      li {
+        font-size: 13px;
+        color: #555;
+        padding: 2px 0;
+      }
+    }
+  }
+}

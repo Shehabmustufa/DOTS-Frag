@@ -17,14 +17,14 @@
         <tr><th>#</th><th>Name</th><th>Mobile</th><th>Location</th><th>Found Via</th><th>Joined</th><th>Actions</th></tr>
       </thead>
       <tbody>
-        <tr *ngFor="let c of customers; let i = index">
+        <tr *ngFor="let c of customers; let i = index" (click)="viewOrders(c)" style="cursor:pointer">
           <td class="text-muted">{{ i + 1 }}</td>
           <td><strong>{{ c.name }}</strong></td>
-          <td><a href="tel:{{ c.mobile_number }}">{{ c.mobile_number }}</a></td>
+          <td><a href="tel:{{ c.mobile_number }}" (click)="$event.stopPropagation()">{{ c.mobile_number }}</a></td>
           <td>{{ c.location }}</td>
           <td><span class="badge bg-info text-dark">{{ c.found_via }}</span></td>
           <td>{{ c.created_at | date:'short' }}</td>
-          <td>
+          <td (click)="$event.stopPropagation()">
             <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(c)">✎ Edit</button>
             <button class="btn btn-sm btn-outline-danger" (click)="remove(c.id!)">🗑</button>
           </td>
@@ -37,6 +37,7 @@
   </div>
 </div>
 
+<!-- Add/Edit Customer Modal -->
 <div *ngIf="showModal">
   <div class="modal-backdrop-custom" (click)="showModal=false"></div>
   <div class="modal-panel">
@@ -69,6 +70,47 @@
     <div class="modal-panel-footer">
       <button class="btn btn-secondary me-2" (click)="showModal=false">Cancel</button>
       <button class="btn btn-primary" (click)="save()">{{ isEdit ? 'Update' : 'Add' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Order History Modal -->
+<div *ngIf="showOrdersModal">
+  <div class="modal-backdrop-custom" (click)="showOrdersModal=false"></div>
+  <div class="modal-panel modal-panel-lg">
+    <div class="modal-panel-header">
+      <h5>📦 Orders — {{ selectedCustomer?.name }}</h5>
+      <button class="btn-close" (click)="showOrdersModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div *ngIf="loadingOrders" class="loading-container" style="padding: 30px 0;">
+        <div class="spinner"></div>
+        <span>Loading orders...</span>
+      </div>
+      <div *ngIf="!loadingOrders" class="customer-orders-list">
+        <div *ngIf="customerOrders.length === 0" class="text-center text-muted py-4">
+          No orders yet for this customer.
+        </div>
+        <div *ngFor="let o of customerOrders" class="order-card">
+          <div class="order-card-header">
+            <div>
+              <strong>#{{ o.id }}</strong>
+              <span class="badge ms-2" [class]="o.order_status === 'delivered' ? 'bg-success' : o.order_status === 'delivery' ? 'bg-warning text-dark' : 'bg-secondary'">
+                {{ o.order_status }}
+              </span>
+            </div>
+            <div>
+              <strong>{{ orderTotal(o) | currency:'EGP':'symbol':'1.0-0' }}</strong>
+              <small class="text-muted ms-2">{{ o.created_at | date:'short' }}</small>
+            </div>
+          </div>
+          <ul class="order-card-items">
+            <li *ngFor="let item of o.order_items">
+              {{ item.perfume?.brand?.name }} {{ item.perfume?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 </div>

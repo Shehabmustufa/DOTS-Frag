@@ -5,9 +5,9 @@ export interface OrderItem {
   id?: number;
   order_id?: number;
   perfume_id: number;
-  decant_size_ml: 5 | 10;
+  decant_size_ml: 5 | 10 | 30;
   quantity: number;
-  perfume?: { name: string; price_5ml: number; price_10ml: number; brand: { name: string } };
+  perfume?: { name: string; price_5ml: number; price_10ml: number; price_30ml: number; brand: { name: string } };
 }
 
 export interface Order {
@@ -26,13 +26,23 @@ export class OrderService {
   async getAll(): Promise<Order[]> {
     const { data, error } = await this.supa.client
       .from('orders')
-      .select(`*, customer:customers(name, mobile_number), order_items(*, perfume:perfumes(name, price_5ml, price_10ml, brand:brands(name)))`)
+      .select(`*, customer:customers(name, mobile_number), order_items(*, perfume:perfumes(name, price_5ml, price_10ml, price_30ml, brand:brands(name)))`)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data as Order[];
   }
 
-  async create(customerId: number, items: { perfume_id: number; decant_size_ml: 5 | 10; quantity: number }[]): Promise<void> {
+  async getByCustomer(customerId: number): Promise<Order[]> {
+    const { data, error } = await this.supa.client
+      .from('orders')
+      .select(`*, order_items(*, perfume:perfumes(name, price_5ml, price_10ml, price_30ml, brand:brands(name)))`)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Order[];
+  }
+
+  async create(customerId: number, items: { perfume_id: number; decant_size_ml: 5 | 10 | 30; quantity: number }[]): Promise<void> {
     const { data: order, error: oErr } = await this.supa.client
       .from('orders')
       .insert([{ customer_id: Number(customerId), order_status: 'placed' }])

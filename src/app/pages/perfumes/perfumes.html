@@ -17,10 +17,14 @@
         <tr>
           <th>Company</th>
           <th>Brand</th>
+          <th>Name</th>
           <th>ML</th>
           <th>Stock %</th>
-          <th>Price 5ml</th>
-          <th>Price 10ml</th>
+          <th>Bottles</th>
+          <th>Discount</th>
+          <th>5ml</th>
+          <th>10ml</th>
+          <th>30ml</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -28,10 +32,11 @@
         <tr *ngFor="let p of perfumes">
           <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
           <td>{{ p.brand?.name || '—' }}</td>
+          <td>{{ p.name }}</td>
           <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
             <span *ngIf="editingRowId !== p.id">{{ p.current_ml }} / {{ p.full_ml }}</span>
-            <span *ngIf="savingRowId === p.id" class="text-muted">💾 Saving...</span>
-            <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml" 
+            <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
+            <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml"
               (blur)="saveInlineEdit(p, 'current_ml', p.current_ml)" class="form-control form-control-sm">
           </td>
           <td>
@@ -41,40 +46,51 @@
               </div>
             </div>
           </td>
-          <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
+          <td>{{ p.bottles_available }}</td>
+          <td>
+            <span *ngIf="p.discount_percentage" class="badge bg-success">{{ p.discount_percentage }}%</span>
+            <span *ngIf="!p.discount_percentage" class="text-muted">—</span>
+          </td>
+          <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id">
             <span *ngIf="editingRowId !== p.id">{{ p.price_5ml }}</span>
-            <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
-            <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.price_5ml" 
+            <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_5ml"
               (blur)="saveInlineEdit(p, 'price_5ml', p.price_5ml)" class="form-control form-control-sm">
           </td>
-          <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
+          <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id">
             <span *ngIf="editingRowId !== p.id">{{ p.price_10ml }}</span>
-            <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
-            <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.price_10ml" 
+            <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_10ml"
               (blur)="saveInlineEdit(p, 'price_10ml', p.price_10ml)" class="form-control form-control-sm">
           </td>
+          <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id">
+            <span *ngIf="editingRowId !== p.id">{{ p.price_30ml || '—' }}</span>
+            <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_30ml"
+              (blur)="saveInlineEdit(p, 'price_30ml', p.price_30ml)" class="form-control form-control-sm">
+          </td>
           <td>
-            <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(p)">✎ Edit</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(p)">✎</button>
             <button class="btn btn-sm btn-outline-danger" (click)="remove(p.id!)">🗑</button>
           </td>
         </tr>
         <tr *ngIf="perfumes.length === 0">
-          <td colspan="7" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
+          <td colspan="11" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<!-- Modal -->
+<!-- Add/Edit Modal -->
 <div *ngIf="showModal">
   <div class="modal-backdrop-custom" (click)="showModal=false; editingRowId=null"></div>
-  <div class="modal-panel" (keyup.escape)="showModal=false">
+  <div class="modal-panel modal-panel-lg" (keyup.escape)="showModal=false">
     <div class="modal-panel-header">
       <h5>{{ isEdit ? 'Edit Perfume' : 'Add Perfume' }}</h5>
       <button class="btn-close" (click)="showModal=false; editingRowId=null"></button>
     </div>
     <div class="modal-panel-body">
+      <div *ngIf="!isEdit" class="alert alert-info" style="font-size:13px;">
+        Adding a perfume with the same brand + name will merge into the existing row (increases bottles &amp; ML).
+      </div>
       <div class="row g-3">
         <div class="col-6">
           <label class="form-label">Company *</label>
@@ -94,29 +110,37 @@
           <label class="form-label">Name *</label>
           <input class="form-control" [(ngModel)]="form.name" placeholder="e.g. Khamrah">
         </div>
-        <div class="col-6">
+        <div class="col-3">
           <label class="form-label">Full ML</label>
           <input type="number" class="form-control" [(ngModel)]="form.full_ml">
         </div>
-        <div class="col-6">
+        <div class="col-3">
           <label class="form-label">Current ML</label>
           <input type="number" class="form-control" [(ngModel)]="form.current_ml">
         </div>
-        <div class="col-6">
-          <label class="form-label">Price 5ml (EGP)</label>
-          <input type="number" class="form-control" [(ngModel)]="form.price_5ml">
-        </div>
-        <div class="col-6">
-          <label class="form-label">Price 10ml (EGP)</label>
-          <input type="number" class="form-control" [(ngModel)]="form.price_10ml">
-        </div>
-        <div class="col-6">
+        <div class="col-4">
           <label class="form-label">Original Price (EGP)</label>
           <input type="number" class="form-control" [(ngModel)]="form.price_original">
         </div>
-        <div class="col-6">
+        <div class="col-4">
+          <label class="form-label">Discount %</label>
+          <input type="number" class="form-control" [(ngModel)]="form.discount_percentage" min="0" max="100" placeholder="0">
+        </div>
+        <div class="col-4">
           <label class="form-label">Bought From</label>
           <input class="form-control" [(ngModel)]="form.bought_from">
+        </div>
+        <div class="col-4">
+          <label class="form-label">Price 5ml (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.price_5ml">
+        </div>
+        <div class="col-4">
+          <label class="form-label">Price 10ml (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.price_10ml">
+        </div>
+        <div class="col-4">
+          <label class="form-label">Price 30ml (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.price_30ml">
         </div>
         <div class="col-6">
           <label class="form-label">Bottles Available</label>
