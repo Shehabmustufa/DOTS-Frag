@@ -17,11 +17,9 @@
         <tr>
           <th>Company</th>
           <th>Brand</th>
-          <th>Name</th>
           <th>ML</th>
           <th>Stock %</th>
           <th>Bottles</th>
-          <th>Discount</th>
           <th>5ml</th>
           <th>10ml</th>
           <th>30ml</th>
@@ -32,7 +30,6 @@
         <tr *ngFor="let p of perfumes">
           <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
           <td>{{ p.brand?.name || '—' }}</td>
-          <td>{{ p.name }}</td>
           <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
             <span *ngIf="editingRowId !== p.id">{{ p.current_ml }} / {{ p.full_ml }}</span>
             <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
@@ -47,10 +44,6 @@
             </div>
           </td>
           <td>{{ p.bottles_available }}</td>
-          <td>
-            <span *ngIf="p.discount_percentage" class="badge bg-success">{{ p.discount_percentage }}%</span>
-            <span *ngIf="!p.discount_percentage" class="text-muted">—</span>
-          </td>
           <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id">
             <span *ngIf="editingRowId !== p.id">{{ p.price_5ml }}</span>
             <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_5ml"
@@ -72,7 +65,7 @@
           </td>
         </tr>
         <tr *ngIf="perfumes.length === 0">
-          <td colspan="11" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
+          <td colspan="9" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
         </tr>
       </tbody>
     </table>
@@ -89,7 +82,7 @@
     </div>
     <div class="modal-panel-body">
       <div *ngIf="!isEdit" class="alert alert-info" style="font-size:13px;">
-        Adding a perfume with the same brand + name will merge into the existing row (increases bottles &amp; ML).
+        Adding a perfume with an existing brand will merge into that row (increases bottles &amp; ML automatically).
       </div>
       <div class="row g-3">
         <div class="col-6">
@@ -106,10 +99,6 @@
             <option *ngFor="let b of getFilteredBrands()" [ngValue]="b.id">{{ b.name }}</option>
           </select>
         </div>
-        <div class="col-6">
-          <label class="form-label">Name *</label>
-          <input class="form-control" [(ngModel)]="form.name" placeholder="e.g. Khamrah">
-        </div>
         <div class="col-3">
           <label class="form-label">Full ML</label>
           <input type="number" class="form-control" [(ngModel)]="form.full_ml">
@@ -118,18 +107,15 @@
           <label class="form-label">Current ML</label>
           <input type="number" class="form-control" [(ngModel)]="form.current_ml">
         </div>
-        <div class="col-4">
+        <div class="col-6">
           <label class="form-label">Original Price (EGP)</label>
           <input type="number" class="form-control" [(ngModel)]="form.price_original">
         </div>
-        <div class="col-4">
-          <label class="form-label">Discount %</label>
-          <input type="number" class="form-control" [(ngModel)]="form.discount_percentage" min="0" max="100" placeholder="0">
-        </div>
-        <div class="col-4">
+        <div class="col-6">
           <label class="form-label">Bought From</label>
           <input class="form-control" [(ngModel)]="form.bought_from">
         </div>
+        <div class="col-6">&nbsp;</div>
         <div class="col-4">
           <label class="form-label">Price 5ml (EGP)</label>
           <input type="number" class="form-control" [(ngModel)]="form.price_5ml">

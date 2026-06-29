@@ -10,8 +10,27 @@
 a {
   color: #3b82f6;
   text-decoration: none;
-  
+
   &:hover {
     text-decoration: underline;
   }
+}
+
+.gift-customer-row {
+  background: linear-gradient(90deg, #fff8e1, #fffde7) !important;
+  border-left: 3px solid #ffc107;
+
+  &:hover {
+    background: linear-gradient(90deg, #fff3cd, #fff9c4) !important;
+  }
+}
+
+.order-card-discount {
+  background: #fce4ec !important;
+  border-color: #ef9a9a !important;
+}
+
+.order-card-gift {
+  background: #fff8e1 !important;
+  border-color: #ffe082 !important;
 }

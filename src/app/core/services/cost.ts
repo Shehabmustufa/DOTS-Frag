@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { SupabaseService } from './supabase';
 
-export type CostCategory = 'perfume_bottle' | 'marketing_ads' | 'syringes' | 'vials_5ml' | 'vials_10ml' | 'packaging' | 'other';
+export type CostCategory = 'perfume_bottle' | 'marketing_ads' | 'syringes' | 'vials_5ml' | 'vials_10ml' | 'packaging' | 'gift' | 'other';
 export type PaymentStatus = 'pending' | 'paid';
 
 export interface Cost {

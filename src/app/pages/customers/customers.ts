@@ -14,6 +14,8 @@ export class Customers implements OnInit {
   customers: Customer[] = [];
   error = '';
   loading = false;
+  searchQuery = '';
+  giftCustomerIds = new Set<number>();
 
   showModal = false;
   isEdit = false;
@@ -39,13 +41,35 @@ export class Customers implements OnInit {
     this.error = '';
     this.loading = true;
     try {
-      this.customers = await this.svc.getAll();
+      const [customers, giftIds] = await Promise.all([
+        this.svc.getAll(),
+        this.orderSvc.getGiftCustomerIds()
+      ]);
+      this.customers = customers;
+      this.giftCustomerIds = giftIds;
     } catch (e: any) {
       this.error = e.message;
     } finally {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  get filteredCustomers(): Customer[] {
+    if (!this.searchQuery.trim()) return this.customers;
+    const q = this.searchQuery.toLowerCase().trim();
+    return this.customers.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.mobile_number.includes(q)
+    );
+  }
+
+  isGiftCustomer(c: Customer): boolean {
+    return this.giftCustomerIds.has(c.id!);
+  }
+
+  hasDiscount(o: Order): boolean {
+    return (Number(o.discount_percentage) || 0) > 0;
   }
 
   async viewOrders(c: Customer) {
@@ -65,7 +89,7 @@ export class Customers implements OnInit {
 
   orderTotal(o: Order): number {
     if (!o.order_items) return 0;
-    return o.order_items.reduce((sum, item) => {
+    const subtotal = o.order_items.reduce((sum, item) => {
       if (!item.perfume) return sum;
       let price = 0;
       if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
@@ -73,6 +97,8 @@ export class Customers implements OnInit {
       else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;
     }, 0);
+    const discount = Number(o.discount_percentage) || 0;
+    return Math.round(subtotal * (1 - discount / 100));
   }
 
   openAdd() {

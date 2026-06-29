@@ -27,7 +27,7 @@ export class Costs implements OnInit {
   editId: number | null = null;
   form: Partial<Cost> = { title: '', category: 'other', amount: 0, payment_status: 'paid' };
 
-  categories: CostCategory[] = ['perfume_bottle','marketing_ads','syringes','vials_5ml','vials_10ml','packaging','other'];
+  categories: CostCategory[] = ['perfume_bottle','marketing_ads','syringes','vials_5ml','vials_10ml','packaging','gift','other'];
 
   filterFrom = '';
   filterTo = '';

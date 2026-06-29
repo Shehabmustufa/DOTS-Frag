@@ -20,12 +20,16 @@
   </div>
 
   <div *ngFor="let company of companies" [hidden]="loading" style="background: white; margin-bottom: 16px; border-radius: 8px; overflow: hidden;">
-    <div style="padding: 16px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" (click)="toggleCompany(company.id!)">
-      <div>
+    <div style="padding: 16px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+      <div (click)="toggleCompany(company.id!)" style="flex: 1; cursor: pointer;">
         <h5 style="margin: 0;">{{ company.name }}</h5>
         <small style="color: #888;">{{ company.country }}</small>
       </div>
-      <span>{{ expandedCompanyId === company.id ? '▼' : '▶' }}</span>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button class="btn btn-sm btn-outline-secondary" (click)="$event.stopPropagation(); openEditCompany(company)">✎</button>
+        <button class="btn btn-sm btn-outline-danger" (click)="$event.stopPropagation(); removeCompany(company.id!)">🗑</button>
+        <span (click)="toggleCompany(company.id!)" style="cursor:pointer; padding: 0 8px;">{{ expandedCompanyId === company.id ? '▼' : '▶' }}</span>
+      </div>
     </div>
 
     <div *ngIf="expandedCompanyId === company.id" style="padding: 16px; border-top: 1px solid #e0e0e0;">
@@ -35,8 +39,8 @@
           <p *ngIf="brand.description" style="margin: 4px 0 0 0; color: #888; font-size: 12px;">{{ brand.description }}</p>
         </div>
         <div style="display: flex; gap: 6px;">
-          <button class="btn btn-sm btn-outline-secondary" (click)="openEditBrand(brand)">Edit</button>
-          <button class="btn btn-sm btn-outline-danger" (click)="remove(brand.id!)">Delete</button>
+          <button class="btn btn-sm btn-outline-secondary" (click)="openEditBrand(brand)">✎</button>
+          <button class="btn btn-sm btn-outline-danger" (click)="remove(brand.id!)">🗑</button>
         </div>
       </div>
       <button class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="openAddBrand(company.id!)">+ Add Brand</button>
@@ -44,6 +48,7 @@
   </div>
 </div>
 
+<!-- Brand Modal -->
 <div *ngIf="showModal">
   <div class="modal-backdrop-custom" (click)="showModal=false"></div>
   <div class="modal-panel">
@@ -64,6 +69,31 @@
     <div class="modal-panel-footer">
       <button class="btn btn-secondary" (click)="showModal=false">Cancel</button>
       <button class="btn btn-primary" (click)="save()">{{ isEdit ? 'Update' : 'Add' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Company Edit Modal -->
+<div *ngIf="showCompanyModal">
+  <div class="modal-backdrop-custom" (click)="showCompanyModal=false"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>Edit Company</h5>
+      <button class="btn-close" (click)="showCompanyModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="mb-3">
+        <label class="form-label">Company Name</label>
+        <input class="form-control" [(ngModel)]="companyForm.name">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Country</label>
+        <input class="form-control" [(ngModel)]="companyForm.country">
+      </div>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary" (click)="showCompanyModal=false">Cancel</button>
+      <button class="btn btn-primary" (click)="saveCompany()">Update</button>
     </div>
   </div>
 </div>
