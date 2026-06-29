@@ -1,3 +1,102 @@
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  flex: 1;
+  padding: 16px;
+  border-radius: 8px;
+  color: white;
+
+  .stat-label {
+    display: block;
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 600;
+  }
+}
+
+.stat-success { background: linear-gradient(135deg, #4caf50, #388e3c); }
+.stat-info { background: linear-gradient(135deg, #2196f3, #1565c0); }
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .filter-group {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .revenue-filter {
+    display: flex;
+    gap: 4px;
+  }
+}
+
+.day-group {
+  margin-bottom: 24px;
+}
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #1a1a2e;
+  color: white;
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  font-size: 14px;
+
+  .day-total {
+    font-size: 15px;
+    opacity: 0.9;
+  }
+}
+
+.day-group .table-responsive {
+  border-radius: 0;
+}
+
+.day-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: white;
+  border-radius: 0 0 8px 8px;
+  border-top: 1px solid #e9ecef;
+  font-size: 13px;
+}
+
+.gift-row {
+  background: #fff8e1 !important;
+
+  &:hover {
+    background: #fff3cd !important;
+  }
+}
+
+.discount-row {
+  background: #fce4ec !important;
+
+  &:hover {
+    background: #f8bbd0 !important;
+  }
+}
+
 .expanded-row {
   td {
     background: #f8f9fa;
@@ -37,4 +136,11 @@
   button {
     flex-shrink: 0;
   }
+}
+
+.order-summary {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
 }

@@ -27,6 +27,11 @@ export class Brands implements OnInit {
   form: Partial<Brand> = { name: '', company_id: undefined, description: '' };
   newCompany: Partial<Company> = { name: '', country: '' };
 
+  showCompanyModal = false;
+  isEditCompany = false;
+  editCompanyId: number | null = null;
+  companyForm: Partial<Company> = { name: '', country: '' };
+
   constructor(
     private brandSvc: BrandService,
     private companySvc: CompanyService,
@@ -68,6 +73,43 @@ export class Brands implements OnInit {
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Failed to add company';
+      this.cdr.markForCheck();
+    }
+  }
+
+  openEditCompany(c: Company) {
+    this.isEditCompany = true;
+    this.editCompanyId = c.id!;
+    this.companyForm = { name: c.name, country: c.country || '' };
+    this.showCompanyModal = true;
+  }
+
+  async saveCompany() {
+    this.error = '';
+    try {
+      if (this.isEditCompany && this.editCompanyId) {
+        await this.companySvc.update(this.editCompanyId, this.companyForm);
+      }
+      this.showCompanyModal = false;
+      await this.load();
+    } catch (e: any) {
+      this.error = e?.message || 'Save failed';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async removeCompany(id: number) {
+    const brandCount = this.getCompanyBrands(id).length;
+    const msg = brandCount > 0
+      ? `This company has ${brandCount} brand(s). Delete anyway?`
+      : 'Delete this company?';
+    if (!confirm(msg)) return;
+    try {
+      await this.companySvc.delete(id);
+      if (this.expandedCompanyId === id) this.expandedCompanyId = null;
+      await this.load();
+    } catch (e: any) {
+      this.error = e?.message || 'Delete failed';
       this.cdr.markForCheck();
     }
   }

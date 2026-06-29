@@ -4,6 +4,10 @@
     <button class="btn btn-primary" (click)="openAdd()">+ Add Customer</button>
   </div>
 
+  <div class="mb-3">
+    <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by name or mobile number...">
+  </div>
+
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
   <div *ngIf="loading" class="loading-container">
@@ -17,9 +21,14 @@
         <tr><th>#</th><th>Name</th><th>Mobile</th><th>Location</th><th>Found Via</th><th>Joined</th><th>Actions</th></tr>
       </thead>
       <tbody>
-        <tr *ngFor="let c of customers; let i = index" (click)="viewOrders(c)" style="cursor:pointer">
+        <tr *ngFor="let c of filteredCustomers; let i = index"
+            (click)="viewOrders(c)" style="cursor:pointer"
+            [class.gift-customer-row]="isGiftCustomer(c)">
           <td class="text-muted">{{ i + 1 }}</td>
-          <td><strong>{{ c.name }}</strong></td>
+          <td>
+            <strong>{{ c.name }}</strong>
+            <span *ngIf="isGiftCustomer(c)" class="badge bg-warning text-dark ms-1" style="font-size:10px;">🎁</span>
+          </td>
           <td><a href="tel:{{ c.mobile_number }}" (click)="$event.stopPropagation()">{{ c.mobile_number }}</a></td>
           <td>{{ c.location }}</td>
           <td><span class="badge bg-info text-dark">{{ c.found_via }}</span></td>
@@ -29,8 +38,8 @@
             <button class="btn btn-sm btn-outline-danger" (click)="remove(c.id!)">🗑</button>
           </td>
         </tr>
-        <tr *ngIf="customers.length === 0">
-          <td colspan="7" class="text-center text-muted py-4">No customers yet.</td>
+        <tr *ngIf="filteredCustomers.length === 0">
+          <td colspan="7" class="text-center text-muted py-4">No customers found.</td>
         </tr>
       </tbody>
     </table>
@@ -91,13 +100,15 @@
         <div *ngIf="customerOrders.length === 0" class="text-center text-muted py-4">
           No orders yet for this customer.
         </div>
-        <div *ngFor="let o of customerOrders" class="order-card">
+        <div *ngFor="let o of customerOrders" class="order-card" [class.order-card-discount]="hasDiscount(o)" [class.order-card-gift]="o.is_gift">
           <div class="order-card-header">
             <div>
               <strong>#{{ o.id }}</strong>
               <span class="badge ms-2" [class]="o.order_status === 'delivered' ? 'bg-success' : o.order_status === 'delivery' ? 'bg-warning text-dark' : 'bg-secondary'">
                 {{ o.order_status }}
               </span>
+              <span *ngIf="hasDiscount(o)" class="badge bg-danger ms-1">{{ o.discount_percentage }}% off</span>
+              <span *ngIf="o.is_gift" class="badge bg-warning text-dark ms-1">🎁 Gift</span>
             </div>
             <div>
               <strong>{{ orderTotal(o) | currency:'EGP':'symbol':'1.0-0' }}</strong>
@@ -106,7 +117,7 @@
           </div>
           <ul class="order-card-items">
             <li *ngFor="let item of o.order_items">
-              {{ item.perfume?.brand?.name }} {{ item.perfume?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
+              {{ item.perfume?.brand?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
             </li>
           </ul>
         </div>
