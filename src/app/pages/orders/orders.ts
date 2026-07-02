@@ -27,10 +27,27 @@ export class Orders implements OnInit {
   error = '';
   loading = false;
 
-  searchQuery = '';
-  revenueFilter: 'all' | 'week' | 'month' = 'all';
-  pageSize = 10;
+  // Cached properties computed once per data change
+  filteredOrders: Order[] = [];
+  totalRevenue = 0;
+  totalOrders = 0;
+  dayGroups: DayGroup[] = [];
 
+  private _searchQuery = '';
+  get searchQuery() { return this._searchQuery; }
+  set searchQuery(val: string) {
+    this._searchQuery = val;
+    this.applyFiltersAndGrouping(); // Recompute on change
+  }
+
+  private _revenueFilter: 'all' | 'week' | 'month' = 'all';
+  get revenueFilter() { return this._revenueFilter; }
+  set revenueFilter(val: 'all' | 'week' | 'month') {
+    this._revenueFilter = val;
+    this.applyFiltersAndGrouping(); // Recompute on change
+  }
+
+  pageSize = 10;
   showModal = false;
   selectedCustomerId: number | null = null;
   items: { perfume_id: number | null; decant_size_ml: 5 | 10 | 30; quantity: number }[] = [];
@@ -51,26 +68,38 @@ export class Orders implements OnInit {
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() { this.load(); }
+  ngOnInit() {
+    this.load();
+  }
 
   async load() {
     this.error = '';
     this.loading = true;
+
     try {
-      [this.orders, this.customers, this.perfumes] = await Promise.all([
-        this.svc.getAll(),
-        this.customerSvc.getAll(),
-        this.perfumeSvc.getAll()
-      ]);
+      console.log('Loading orders...');
+      this.orders = await this.svc.getAll();
+
+      console.log('Loading customers...');
+      this.customers = await this.customerSvc.getAll();
+
+      console.log('Loading perfumes...');
+      this.perfumes = await this.perfumeSvc.getAll();
+
+      // Compute data visualization matrix once data arrives
+      this.applyFiltersAndGrouping();
+
     } catch (e: any) {
-      this.error = e.message;
+      console.error('Load error:', e);
+      this.error = e?.message || 'Unknown error';
     } finally {
       this.loading = false;
       this.cdr.markForCheck();
     }
   }
 
-  get filteredOrders(): Order[] {
+  applyFiltersAndGrouping() {
+    // 1. Calculate Filtered Orders
     let result = this.orders;
 
     if (this.searchQuery.trim()) {
@@ -91,29 +120,32 @@ export class Orders implements OnInit {
       result = result.filter(o => new Date(o.created_at!) >= monthAgo);
     }
 
-    return result;
-  }
+    this.filteredOrders = result;
+    this.totalOrders = result.length;
 
-  get totalRevenue(): number {
-    return this.filteredOrders.reduce((s, o) => s + this.orderTotal(o), 0);
-  }
+    // 2. Calculate Total Revenue
+    this.totalRevenue = this.filteredOrders.reduce((s, o) => s + this.orderTotal(o), 0);
 
-  get totalOrders(): number {
-    return this.filteredOrders.length;
-  }
-
-  get dayGroups(): DayGroup[] {
+    // 3. Build Day Groups
     const map = new Map<string, Order[]>();
     for (const o of this.filteredOrders) {
       const d = new Date(o.created_at!);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
+
     const groups: DayGroup[] = [];
     for (const [date, orders] of map) {
       const d = new Date(date + 'T00:00:00');
-      const label = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const label = d.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
       groups.push({
         date,
         label,
@@ -122,8 +154,9 @@ export class Orders implements OnInit {
         page: 1,
       });
     }
+
     groups.sort((a, b) => b.date.localeCompare(a.date));
-    return groups;
+    this.dayGroups = groups;
   }
 
   getPagedOrders(group: DayGroup): Order[] {
@@ -194,8 +227,7 @@ export class Orders implements OnInit {
       else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;
     }, 0);
-    const discount = Number(o.discount_percentage) || 0;
-    return Math.round(subtotal * (1 - discount / 100));
+    return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
   }
 
   getNewOrderSubtotal(): number {
@@ -212,18 +244,23 @@ export class Orders implements OnInit {
   }
 
   getNewOrderTotal(): number {
-    const subtotal = this.getNewOrderSubtotal();
-    return Math.round(subtotal * (1 - (this.orderDiscount || 0) / 100));
+    return Math.round(this.getNewOrderSubtotal() * (1 - (this.orderDiscount || 0) / 100));
   }
 
   async save() {
     this.error = '';
-    if (!this.selectedCustomerId) { this.error = 'Please select a customer.'; return; }
-    const validItems = this.items.filter(i => i.perfume_id !== null) as { perfume_id: number; decant_size_ml: 5 | 10 | 30; quantity: number }[];
-    if (!validItems.length) { this.error = 'Add at least one item.'; return; }
+    if (!this.selectedCustomerId) {
+      this.error = 'Please select a customer.';
+      return;
+    }
+    const validItems = this.items.filter(i => i.perfume_id !== null) as any[];
+    if (!validItems.length) {
+      this.error = 'Add at least one item.';
+      return;
+    }
+
     try {
       await this.svc.create(this.selectedCustomerId, validItems, this.orderDiscount, this.orderIsGift);
-
       if (this.orderIsGift) {
         const total = this.getNewOrderTotal();
         const customer = this.customers.find(c => c.id === this.selectedCustomerId);
@@ -234,24 +271,36 @@ export class Orders implements OnInit {
           payment_status: 'paid',
         });
       }
-
       this.showModal = false;
       await this.load();
     } catch (e: any) {
+      console.error('Save error:', e);
       this.error = e.message;
       this.cdr.markForCheck();
     }
   }
 
   async updateStatus(o: Order, status: Order['order_status']) {
-    try { await this.svc.updateStatus(o.id!, status); await this.load(); }
-    catch (e: any) { this.error = e.message; this.cdr.markForCheck(); }
+    try {
+      await this.svc.updateStatus(o.id!, status);
+      await this.load();
+    } catch (e: any) {
+      console.error('Update status error:', e);
+      this.error = e.message;
+      this.cdr.markForCheck();
+    }
   }
 
   async remove(id: number) {
     if (!confirm('Delete this order?')) return;
-    try { await this.svc.delete(id); await this.load(); }
-    catch (e: any) { this.error = e.message; this.cdr.markForCheck(); }
+    try {
+      await this.svc.delete(id);
+      await this.load();
+    } catch (e: any) {
+      console.error('Delete error:', e);
+      this.error = e.message;
+      this.cdr.markForCheck();
+    }
   }
 
   toggleExpand(id: number) {
