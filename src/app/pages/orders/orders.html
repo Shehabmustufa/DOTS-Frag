@@ -71,11 +71,12 @@
                   <span *ngIf="!o.is_gift" class="text-muted">—</span>
                 </td>
                 <td (click)="$event.stopPropagation()">
-                  <select class="form-select form-select-sm" [(ngModel)]="o.order_status" (ngModelChange)="updateStatus(o, $event)">
-                    <option value="placed">Placed</option>
-                    <option value="delivery">Delivery</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
+                <span *ngIf="o.order_status === 'cancelled'" class="badge bg-danger">Cancelled</span>
+                <select *ngIf="o.order_status !== 'cancelled'" class="form-select form-select-sm" [ngModel]="o.order_status" (ngModelChange)="updateStatus(o, $event)">
+                  <option value="placed">Placed</option>  
+                  <option value="delivery">Delivery</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
                   </select>
                 </td>
                 <td (click)="$event.stopPropagation()">

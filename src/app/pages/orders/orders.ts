@@ -262,12 +262,15 @@ export class Orders implements OnInit {
     }
   }
 
-  async updateStatus(o: Order, newStatus: Order['order_status']) {
-    const oldStatus = o.order_status;
+async updateStatus(o: Order, newStatus: Order['order_status']) {
+    if (o.order_status === 'cancelled') return;
     try {
-      await this.svc.updateStatus(o.id!, newStatus);
 
-      if (newStatus === 'cancelled' && oldStatus !== 'cancelled' && o.order_items) {
+      if (newStatus === 'cancelled' && o.order_items) {
+        if (!confirm('Cancel this order? Items will be returned to inventory.')) {
+          await this.load();
+          return;
+        } 
         for (const item of o.order_items) {
           const perfume = await this.perfumeSvc.getById(item.perfume_id);
           if (perfume) {
@@ -279,6 +282,7 @@ export class Orders implements OnInit {
         }
       }
 
+      await this.svc.updateStatus(o.id!, newStatus);
       await this.load();
     } catch (e: any) {
       this.error = e.message;
@@ -287,7 +291,7 @@ export class Orders implements OnInit {
   }
 
   async remove(id: number) {
-    if (!confirm('Delete this order?')) return;
+    if (!confirm('Delete this order permanently?')) return;
     try { await this.svc.delete(id); await this.load(); }
     catch (e: any) { this.error = e.message; this.cdr.markForCheck(); }
   }
