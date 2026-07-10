@@ -6,6 +6,35 @@
   height: 100vh;
   overflow-y: auto;
   border-right: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav {
+  flex: 1;
+}
+
+.sidebar-footer {
+  padding-top: 16px;
+  border-top: 1px solid #333;
+
+  .logout-btn {
+    width: 100%;
+    background: none;
+    border: 1px solid #555;
+    color: #ccc;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #e53935;
+      border-color: #e53935;
+      color: white;
+    }
+  }
 }
 
 .sidebar-brand {

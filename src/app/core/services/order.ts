@@ -13,7 +13,7 @@ export interface OrderItem {
 export interface Order {
   id?: number;
   customer_id: number;
-  order_status: 'placed' | 'delivery' | 'delivered';
+  order_status: 'placed' | 'delivery' | 'delivered' | 'cancelled';
   discount_percentage?: number;
   is_gift?: boolean;
   created_at?: string;

@@ -42,6 +42,16 @@ export class PerfumeService {
     return data && data.length > 0 ? data[0] as Perfume : null;
   }
 
+  async getById(id: number): Promise<Perfume | null> {
+    const { data, error } = await this.supa.client
+      .from(this.table)
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data as Perfume;
+  }
+
   async create(p: Partial<Perfume>): Promise<void> {
     if (!p.brand_id) throw new Error('Brand is required');
 

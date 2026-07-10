@@ -16,14 +16,18 @@
   </div>
 
   <div class="filter-row mb-3">
-    <div class="filter-group">
+    <div class="filter-group" style="flex:1; min-width:200px;">
       <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by customer name, mobile, or order #...">
     </div>
-    <div class="revenue-filter">
-      <button class="btn btn-sm" [class]="revenueFilter === 'all' ? 'btn-dark' : 'btn-outline-secondary'" (click)="revenueFilter='all'">All Time</button>
-      <button class="btn btn-sm" [class]="revenueFilter === 'week' ? 'btn-dark' : 'btn-outline-secondary'" (click)="revenueFilter='week'">This Week</button>
-      <button class="btn btn-sm" [class]="revenueFilter === 'month' ? 'btn-dark' : 'btn-outline-secondary'" (click)="revenueFilter='month'">This Month</button>
+    <div class="filter-group">
+      <label class="form-label mb-0">From</label>
+      <input type="date" class="form-control form-control-sm" [(ngModel)]="filterFrom">
     </div>
+    <div class="filter-group">
+      <label class="form-label mb-0">To</label>
+      <input type="date" class="form-control form-control-sm" [(ngModel)]="filterTo">
+    </div>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo">Clear</button>
   </div>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
@@ -51,7 +55,9 @@
           <tbody>
             <ng-container *ngFor="let o of getPagedOrders(group)">
               <tr (click)="toggleExpand(o.id!)" style="cursor:pointer"
-                  [class.gift-row]="o.is_gift" [class.discount-row]="!o.is_gift && (o.discount_percentage || 0) > 0">
+                  [class.gift-row]="o.is_gift"
+                  [class.discount-row]="!o.is_gift && (o.discount_percentage || 0) > 0"
+                  [class.cancelled-row]="o.order_status === 'cancelled'">
                 <td><strong>#{{ o.id }}</strong></td>
                 <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
                 <td>{{ o.order_items?.length || 0 }}</td>
@@ -69,6 +75,7 @@
                     <option value="placed">Placed</option>
                     <option value="delivery">Delivery</option>
                     <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </td>
                 <td (click)="$event.stopPropagation()">

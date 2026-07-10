@@ -1,0 +1,7 @@
+{
+  "buildCommand": "bash vercel-build.sh",
+  "outputDirectory": "dist/perfume-dashboard/browser",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

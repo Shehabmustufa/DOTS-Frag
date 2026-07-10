@@ -38,10 +38,6 @@
     min-width: 200px;
   }
 
-  .revenue-filter {
-    display: flex;
-    gap: 4px;
-  }
 }
 
 .day-group {
@@ -94,6 +90,26 @@
 
   &:hover {
     background: #f8bbd0 !important;
+  }
+}
+
+.cancelled-row {
+  opacity: 0.5;
+  text-decoration: line-through;
+
+  td {
+    color: #999 !important;
+  }
+}
+
+.filter-row .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 12px;
+    color: #666;
   }
 }
 
