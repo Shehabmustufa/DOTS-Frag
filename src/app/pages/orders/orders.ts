@@ -27,7 +27,6 @@ export class Orders implements OnInit {
   error = '';
   loading = false;
 
-  // Cached properties computed once per data change
   filteredOrders: Order[] = [];
   totalRevenue = 0;
   totalOrders = 0;
@@ -37,14 +36,21 @@ export class Orders implements OnInit {
   get searchQuery() { return this._searchQuery; }
   set searchQuery(val: string) {
     this._searchQuery = val;
-    this.applyFiltersAndGrouping(); // Recompute on change
+    this.applyFiltersAndGrouping();
   }
 
-  private _revenueFilter: 'all' | 'week' | 'month' = 'all';
-  get revenueFilter() { return this._revenueFilter; }
-  set revenueFilter(val: 'all' | 'week' | 'month') {
-    this._revenueFilter = val;
-    this.applyFiltersAndGrouping(); // Recompute on change
+  private _filterFrom = '';
+  get filterFrom() { return this._filterFrom; }
+  set filterFrom(val: string) {
+    this._filterFrom = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  private _filterTo = '';
+  get filterTo() { return this._filterTo; }
+  set filterTo(val: string) {
+    this._filterTo = val;
+    this.applyFiltersAndGrouping();
   }
 
   pageSize = 10;
@@ -68,29 +74,19 @@ export class Orders implements OnInit {
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() {
-    this.load();
-  }
+  ngOnInit() { this.load(); }
 
   async load() {
     this.error = '';
     this.loading = true;
-
     try {
-      console.log('Loading orders...');
-      this.orders = await this.svc.getAll();
-
-      console.log('Loading customers...');
-      this.customers = await this.customerSvc.getAll();
-
-      console.log('Loading perfumes...');
-      this.perfumes = await this.perfumeSvc.getAll();
-
-      // Compute data visualization matrix once data arrives
+      [this.orders, this.customers, this.perfumes] = await Promise.all([
+        this.svc.getAll(),
+        this.customerSvc.getAll(),
+        this.perfumeSvc.getAll()
+      ]);
       this.applyFiltersAndGrouping();
-
     } catch (e: any) {
-      console.error('Load error:', e);
       this.error = e?.message || 'Unknown error';
     } finally {
       this.loading = false;
@@ -99,7 +95,6 @@ export class Orders implements OnInit {
   }
 
   applyFiltersAndGrouping() {
-    // 1. Calculate Filtered Orders
     let result = this.orders;
 
     if (this.searchQuery.trim()) {
@@ -111,27 +106,25 @@ export class Orders implements OnInit {
       );
     }
 
-    const now = new Date();
-    if (this.revenueFilter === 'week') {
-      const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-      result = result.filter(o => new Date(o.created_at!) >= weekAgo);
-    } else if (this.revenueFilter === 'month') {
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      result = result.filter(o => new Date(o.created_at!) >= monthAgo);
+    if (this._filterFrom) {
+      const from = new Date(this._filterFrom);
+      from.setHours(0, 0, 0, 0);
+      result = result.filter(o => new Date(o.created_at!) >= from);
+    }
+    if (this._filterTo) {
+      const to = new Date(this._filterTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter(o => new Date(o.created_at!) <= to);
     }
 
     this.filteredOrders = result;
     this.totalOrders = result.length;
+    this.totalRevenue = result.reduce((s, o) => s + this.orderTotal(o), 0);
 
-    // 2. Calculate Total Revenue
-    this.totalRevenue = this.filteredOrders.reduce((s, o) => s + this.orderTotal(o), 0);
-
-    // 3. Build Day Groups
     const map = new Map<string, Order[]>();
     for (const o of this.filteredOrders) {
       const d = new Date(o.created_at!);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
@@ -139,24 +132,21 @@ export class Orders implements OnInit {
     const groups: DayGroup[] = [];
     for (const [date, orders] of map) {
       const d = new Date(date + 'T00:00:00');
-      const label = d.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-
+      const label = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       groups.push({
-        date,
-        label,
-        orders,
+        date, label, orders,
         revenue: orders.reduce((s, o) => s + this.orderTotal(o), 0),
         page: 1,
       });
     }
-
     groups.sort((a, b) => b.date.localeCompare(a.date));
     this.dayGroups = groups;
+  }
+
+  clearFilters() {
+    this._filterFrom = '';
+    this._filterTo = '';
+    this.applyFiltersAndGrouping();
   }
 
   getPagedOrders(group: DayGroup): Order[] {
@@ -218,7 +208,7 @@ export class Orders implements OnInit {
   }
 
   orderTotal(o: Order): number {
-    if (!o.order_items) return 0;
+    if (!o.order_items || o.order_status === 'cancelled') return 0;
     const subtotal = o.order_items.reduce((sum, item) => {
       if (!item.perfume) return sum;
       let price = 0;
@@ -249,16 +239,9 @@ export class Orders implements OnInit {
 
   async save() {
     this.error = '';
-    if (!this.selectedCustomerId) {
-      this.error = 'Please select a customer.';
-      return;
-    }
+    if (!this.selectedCustomerId) { this.error = 'Please select a customer.'; return; }
     const validItems = this.items.filter(i => i.perfume_id !== null) as any[];
-    if (!validItems.length) {
-      this.error = 'Add at least one item.';
-      return;
-    }
-
+    if (!validItems.length) { this.error = 'Add at least one item.'; return; }
     try {
       await this.svc.create(this.selectedCustomerId, validItems, this.orderDiscount, this.orderIsGift);
       if (this.orderIsGift) {
@@ -274,18 +257,30 @@ export class Orders implements OnInit {
       this.showModal = false;
       await this.load();
     } catch (e: any) {
-      console.error('Save error:', e);
       this.error = e.message;
       this.cdr.markForCheck();
     }
   }
 
-  async updateStatus(o: Order, status: Order['order_status']) {
+  async updateStatus(o: Order, newStatus: Order['order_status']) {
+    const oldStatus = o.order_status;
     try {
-      await this.svc.updateStatus(o.id!, status);
+      await this.svc.updateStatus(o.id!, newStatus);
+
+      if (newStatus === 'cancelled' && oldStatus !== 'cancelled' && o.order_items) {
+        for (const item of o.order_items) {
+          const perfume = await this.perfumeSvc.getById(item.perfume_id);
+          if (perfume) {
+            const returnMl = item.decant_size_ml * item.quantity;
+            await this.perfumeSvc.update(perfume.id!, {
+              current_ml: perfume.current_ml + returnMl,
+            });
+          }
+        }
+      }
+
       await this.load();
     } catch (e: any) {
-      console.error('Update status error:', e);
       this.error = e.message;
       this.cdr.markForCheck();
     }
@@ -293,14 +288,8 @@ export class Orders implements OnInit {
 
   async remove(id: number) {
     if (!confirm('Delete this order?')) return;
-    try {
-      await this.svc.delete(id);
-      await this.load();
-    } catch (e: any) {
-      console.error('Delete error:', e);
-      this.error = e.message;
-      this.cdr.markForCheck();
-    }
+    try { await this.svc.delete(id); await this.load(); }
+    catch (e: any) { this.error = e.message; this.cdr.markForCheck(); }
   }
 
   toggleExpand(id: number) {
