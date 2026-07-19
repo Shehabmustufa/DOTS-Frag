@@ -18,6 +18,15 @@ export interface Perfume {
   created_at?: string;
 }
 
+export interface PerfumeBottle {
+  id?: number;
+  perfume_id: number;
+  full_ml: number;
+  current_ml: number;
+  cost_id?: number | null;
+  created_at?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PerfumeService {
   private table = 'perfumes';
@@ -32,16 +41,6 @@ export class PerfumeService {
     return (data as Perfume[]) || [];
   }
 
-  async findExisting(brandId: number): Promise<Perfume | null> {
-    const { data, error } = await this.supa.client
-      .from(this.table)
-      .select('*')
-      .eq('brand_id', brandId)
-      .limit(1);
-    if (error) throw error;
-    return data && data.length > 0 ? data[0] as Perfume : null;
-  }
-
   async getById(id: number): Promise<Perfume | null> {
     const { data, error } = await this.supa.client
       .from(this.table)
@@ -52,40 +51,18 @@ export class PerfumeService {
     return data as Perfume;
   }
 
-  async create(p: Partial<Perfume>): Promise<void> {
-    if (!p.brand_id) throw new Error('Brand is required');
-
-    const existing = await this.findExisting(Number(p.brand_id));
-    if (existing) {
-      const newBottles = Number(p.bottles_bought) || 1;
-      const addedMl = Number(p.full_ml) * newBottles;
-      await this.update(existing.id!, {
-        bottles_available: existing.bottles_available + newBottles,
-        bottles_bought: existing.bottles_bought + newBottles,
-        full_ml: existing.full_ml + addedMl,
-        current_ml: existing.current_ml + addedMl,
-        price_original: Number(p.price_original) || existing.price_original,
-        price_5ml: Number(p.price_5ml) || existing.price_5ml,
-        price_10ml: Number(p.price_10ml) || existing.price_10ml,
-        price_30ml: Number(p.price_30ml) || existing.price_30ml,
-      });
-      return;
-    }
-
-    const payload = {
-      brand_id: Number(p.brand_id),
-      full_ml: Number(p.full_ml),
-      current_ml: Number(p.current_ml),
-      bought_from: p.bought_from || null,
-      price_original: Number(p.price_original),
-      price_5ml: Number(p.price_5ml),
-      price_10ml: Number(p.price_10ml),
-      price_30ml: Number(p.price_30ml) || 0,
-      bottles_available: Number(p.bottles_available),
-      bottles_bought: Number(p.bottles_bought),
-      perfume_status: p.perfume_status || 'available',
-    };
-    const { error } = await this.supa.client.from(this.table).insert([payload]);
+  async addBottle(p: Partial<Perfume>, costPrice: number, brandName: string): Promise<void> {
+    const { error } = await this.supa.client.rpc('add_perfume_bottle', {
+      p_brand_id: Number(p.brand_id),
+      p_full_ml: Number(p.full_ml),
+      p_price_original: Number(p.price_original) || 0,
+      p_price_5ml: Number(p.price_5ml) || 0,
+      p_price_10ml: Number(p.price_10ml) || 0,
+      p_price_30ml: Number(p.price_30ml) || 0,
+      p_bought_from: p.bought_from || null,
+      p_cost_price: costPrice || 0,
+      p_cost_title: `Bottle: ${brandName}`,
+    });
     if (error) throw error;
   }
 
@@ -107,8 +84,33 @@ export class PerfumeService {
     if (error) throw error;
   }
 
-  async delete(id: number): Promise<void> {
-    const { error } = await this.supa.client.from(this.table).delete().eq('id', id);
+  async deleteFull(id: number): Promise<void> {
+    const { error } = await this.supa.client.rpc('delete_perfume_full', { p_perfume_id: id });
+    if (error) throw error;
+  }
+
+  // --- Bottle methods ---
+
+  async getBottles(perfumeId: number): Promise<PerfumeBottle[]> {
+    const { data, error } = await this.supa.client
+      .from('perfume_bottles')
+      .select('*')
+      .eq('perfume_id', perfumeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data as PerfumeBottle[]) || [];
+  }
+
+  async updateBottleMl(bottleId: number, currentMl: number): Promise<void> {
+    const { error } = await this.supa.client.rpc('update_bottle_ml', {
+      p_bottle_id: bottleId,
+      p_current_ml: currentMl,
+    });
+    if (error) throw error;
+  }
+
+  async deleteBottle(bottleId: number): Promise<void> {
+    const { error } = await this.supa.client.rpc('delete_perfume_bottle', { p_bottle_id: bottleId });
     if (error) throw error;
   }
 }

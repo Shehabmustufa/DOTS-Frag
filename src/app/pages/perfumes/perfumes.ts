@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PerfumeService, Perfume } from '../../core/services/perfume';
+import { PerfumeService, Perfume, PerfumeBottle } from '../../core/services/perfume';
 import { BrandService, Brand } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
 
@@ -24,12 +24,16 @@ export class Perfumes implements OnInit {
   editingRowId: number | null = null;
   savingRowId: number | null = null;
   selectedCompanyId: number | null = null;
+  costPrice = 0;
+
+  expandedPerfumeId: number | null = null;
+  expandedBottles: PerfumeBottle[] = [];
+  editingBottleId: number | null = null;
 
   form: Partial<Perfume> = {
     brand_id: undefined, full_ml: 0, current_ml: 0,
     bought_from: '', price_original: 0,
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
-    bottles_available: 1, bottles_bought: 1, perfume_status: 'available'
   };
 
   constructor(
@@ -79,15 +83,83 @@ export class Perfumes implements OnInit {
     return 'status-high';
   }
 
+  getBottlePercentage(b: PerfumeBottle): number {
+    if (b.full_ml === 0) return 0;
+    return Math.round((b.current_ml / b.full_ml) * 100);
+  }
+
+  // --- Expand / Collapse ---
+
+  async toggleExpand(p: Perfume) {
+    if (p.bottles_available <= 1) return;
+    if (this.expandedPerfumeId === p.id) {
+      this.expandedPerfumeId = null;
+      this.expandedBottles = [];
+      return;
+    }
+    try {
+      this.expandedPerfumeId = p.id!;
+      this.expandedBottles = await this.svc.getBottles(p.id!);
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to load bottles';
+      this.cdr.markForCheck();
+    }
+  }
+
+  // --- Bottle edit / delete (RPC-based) ---
+
+  startBottleEdit(b: PerfumeBottle) {
+    this.editingBottleId = b.id!;
+  }
+
+  async saveBottleMl(b: PerfumeBottle) {
+    this.editingBottleId = null;
+    try {
+      await this.svc.updateBottleMl(b.id!, b.current_ml);
+      await this.load();
+      if (this.expandedPerfumeId) {
+        this.expandedBottles = await this.svc.getBottles(this.expandedPerfumeId);
+      }
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to save';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async removeBottle(p: Perfume, b: PerfumeBottle) {
+    if (!confirm('Delete this bottle? Its cost will also be removed.')) return;
+    try {
+      await this.svc.deleteBottle(b.id!);
+      await this.load();
+      if (this.expandedPerfumeId) {
+        const remaining = await this.svc.getBottles(this.expandedPerfumeId);
+        if (remaining.length <= 1) {
+          this.expandedPerfumeId = null;
+          this.expandedBottles = [];
+        } else {
+          this.expandedBottles = remaining;
+        }
+      }
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.error = e?.message || 'Delete failed';
+      this.cdr.markForCheck();
+    }
+  }
+
+  // --- Add / Edit modal ---
+
   openAdd() {
     this.isEdit = false;
     this.editId = null;
     this.selectedCompanyId = null;
+    this.costPrice = 0;
     this.form = {
       brand_id: undefined, full_ml: 0, current_ml: 0,
       bought_from: '', price_original: 0,
       price_5ml: 0, price_10ml: 0, price_30ml: 0,
-      bottles_available: 1, bottles_bought: 1, perfume_status: 'available'
     };
     this.showModal = true;
   }
@@ -101,8 +173,6 @@ export class Perfumes implements OnInit {
       brand_id: p.brand_id, full_ml: p.full_ml, current_ml: p.current_ml,
       bought_from: p.bought_from, price_original: p.price_original,
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
-      bottles_available: p.bottles_available, bottles_bought: p.bottles_bought,
-      perfume_status: p.perfume_status,
     };
     this.showModal = true;
   }
@@ -110,8 +180,12 @@ export class Perfumes implements OnInit {
   async save() {
     this.error = '';
     try {
-      if (this.isEdit && this.editId) await this.svc.update(this.editId, this.form);
-      else await this.svc.create(this.form);
+      if (this.isEdit && this.editId) {
+        await this.svc.update(this.editId, this.form);
+      } else {
+        const brand = this.brands.find(b => b.id === Number(this.form.brand_id));
+        await this.svc.addBottle(this.form, this.costPrice, brand?.name || 'Unknown');
+      }
       this.showModal = false;
       await this.load();
     } catch (e: any) {
@@ -120,7 +194,10 @@ export class Perfumes implements OnInit {
     }
   }
 
+  // --- Inline edit for single-bottle perfumes ---
+
   startInlineEdit(p: Perfume) {
+    if (p.bottles_available > 1) return;
     this.editingRowId = p.id!;
   }
 
@@ -145,10 +222,16 @@ export class Perfumes implements OnInit {
     }
   }
 
+  // --- Delete whole perfume (RPC-based) ---
+
   async remove(id: number) {
-    if (!confirm('Delete this perfume?')) return;
+    if (!confirm('Delete this perfume? All bottles and associated costs will be removed.')) return;
     try {
-      await this.svc.delete(id);
+      await this.svc.deleteFull(id);
+      if (this.expandedPerfumeId === id) {
+        this.expandedPerfumeId = null;
+        this.expandedBottles = [];
+      }
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Delete failed';

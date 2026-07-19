@@ -26,15 +26,21 @@ export class CostService {
     return data as Cost[];
   }
 
-  async create(c: Partial<Cost>): Promise<void> {
+  async create(c: Partial<Cost>): Promise<number> {
     const payload = {
       title: String(c.title).trim(),
       category: c.category,
       amount: Number(c.amount),
       payment_status: c.payment_status || 'paid',
-      perfume_id: null,
+      perfume_id: c.perfume_id ?? null,
     };
-    const { error } = await this.supa.client.from(this.table).insert([payload]);
+    const { data, error } = await this.supa.client.from(this.table).insert([payload]).select('id').single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  async deleteByPerfumeId(perfumeId: number): Promise<void> {
+    const { error } = await this.supa.client.from(this.table).delete().eq('perfume_id', perfumeId);
     if (error) throw error;
   }
 
