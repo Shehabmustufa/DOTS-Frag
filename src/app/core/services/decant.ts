@@ -22,6 +22,7 @@ export class DecantService {
     if (error) throw error;
     return (data as Decant[]) || [];
   }
+  // fixing the deployment 
 
   async delete(id: number): Promise<void> {
     const { error } = await this.supa.client.from('decants').delete().eq('id', id);
