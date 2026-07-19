@@ -45,6 +45,13 @@ export class Costs implements OnInit {
     this.applyFiltersAndGrouping();
   }
 
+  private _filterCategory: CostCategory | '' = '';
+  get filterCategory() { return this._filterCategory; }
+  set filterCategory(val: CostCategory | '') {
+    this._filterCategory = val;
+    this.applyFiltersAndGrouping();
+  }
+
   filteredCosts: Cost[] = [];
   totalPaid = 0;
   totalPending = 0;
@@ -57,6 +64,9 @@ export class Costs implements OnInit {
 
   applyFiltersAndGrouping() {
     let result = this.costs;
+    if (this._filterCategory) {
+      result = result.filter(c => c.category === this._filterCategory);
+    }
     if (this._filterFrom) {
       const from = new Date(this._filterFrom);
       from.setHours(0, 0, 0, 0);
@@ -106,6 +116,7 @@ export class Costs implements OnInit {
   clearFilters() {
     this._filterFrom = '';
     this._filterTo = '';
+    this._filterCategory = '';
     this.applyFiltersAndGrouping();
   }
 
