@@ -1,0 +1,61 @@
+<div class="page-container">
+  <div class="page-header">
+    <h2>🧪 Decants Inventory</h2>
+  </div>
+
+  <div class="alert alert-info" style="font-size: 13px;" *ngIf="!loading && decants.length === 0">
+    Decants appear here when a delivery/delivered order is deleted — the already-decanted vials return to your inventory.
+  </div>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Loading decants...</span>
+  </div>
+
+  <div *ngIf="!loading && decants.length > 0">
+    <div class="stats-row mb-3">
+      <div class="stat-card stat-info">
+        <span class="stat-label">Total Decant Entries</span>
+        <span class="stat-value">{{ decants.length }}</span>
+      </div>
+      <div class="stat-card stat-success">
+        <span class="stat-label">Total ML in Stock</span>
+        <span class="stat-value">{{ getTotalMl(decants) }} ml</span>
+      </div>
+    </div>
+
+    <div *ngFor="let group of groupedDecants" class="perfume-group">
+      <div class="group-header">
+        <span class="group-name">{{ group.perfumeName }}</span>
+        <span class="group-company">{{ group.company }}</span>
+        <span class="group-total badge bg-primary">{{ getTotalMl(group.items) }} ml total</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Size</th>
+              <th>Qty</th>
+              <th>Total ML</th>
+              <th>Date Added</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let d of group.items">
+              <td><span class="badge bg-secondary">{{ d.size_ml }}ml</span></td>
+              <td>{{ d.quantity }}</td>
+              <td><strong>{{ d.size_ml * d.quantity }} ml</strong></td>
+              <td class="text-muted">{{ d.created_at | date:'mediumDate' }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-danger" (click)="remove(d)">🗑</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

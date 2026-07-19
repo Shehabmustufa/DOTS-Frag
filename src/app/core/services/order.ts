@@ -82,7 +82,7 @@ export class OrderService {
   }
 
   async delete(id: number): Promise<void> {
-    const { error } = await this.supa.client.from('orders').delete().eq('id', id);
+    const { error } = await this.supa.client.rpc('delete_order_restore_inventory', { p_order_id: id });
     if (error) throw error;
   }
 }
