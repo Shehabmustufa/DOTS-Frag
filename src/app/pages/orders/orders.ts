@@ -56,7 +56,7 @@ export class Orders implements OnInit {
   pageSize = 10;
   showModal = false;
   selectedCustomerId: number | null = null;
-  items: { perfume_id: number | null; decant_size_ml: 5 | 10 | 30; quantity: number }[] = [];
+  items: { perfume_id: number | null; decant_size_ml: number; quantity: number; is_full_bottle: boolean }[] = [];
   orderDiscount = 0;
   orderIsGift = false;
   expandedOrderId: number | null = null;
@@ -190,7 +190,7 @@ export class Orders implements OnInit {
   openAdd() {
     this.selectedCustomerId = null;
     this.customerSearch = '';
-    this.items = [{ perfume_id: null, decant_size_ml: 5, quantity: 1 }];
+    this.items = [{ perfume_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false }];
     this.perfumeSearches = [''];
     this.orderDiscount = 0;
     this.orderIsGift = false;
@@ -198,7 +198,7 @@ export class Orders implements OnInit {
   }
 
   addItem() {
-    this.items.push({ perfume_id: null, decant_size_ml: 5, quantity: 1 });
+    this.items.push({ perfume_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false });
     this.perfumeSearches.push('');
   }
 
@@ -212,7 +212,8 @@ export class Orders implements OnInit {
     const subtotal = o.order_items.reduce((sum, item) => {
       if (!item.perfume) return sum;
       let price = 0;
-      if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
+      if (item.is_full_bottle) price = Number(item.perfume.price_original);
+      else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
       else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
       else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;
@@ -220,17 +221,34 @@ export class Orders implements OnInit {
     return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
   }
 
+  getItemPrice(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean }): number {
+    if (!item.perfume_id) return 0;
+    const p = this.perfumes.find(pf => pf.id === item.perfume_id);
+    if (!p) return 0;
+    if (item.is_full_bottle) return Number(p.price_original);
+    if (item.decant_size_ml === 5) return Number(p.price_5ml);
+    if (item.decant_size_ml === 10) return Number(p.price_10ml);
+    if (item.decant_size_ml === 30) return Number(p.price_30ml);
+    return 0;
+  }
+
   getNewOrderSubtotal(): number {
-    return this.items.reduce((sum, item) => {
-      if (!item.perfume_id) return sum;
-      const p = this.perfumes.find(pf => pf.id === item.perfume_id);
-      if (!p) return sum;
-      let price = 0;
-      if (item.decant_size_ml === 5) price = Number(p.price_5ml);
-      else if (item.decant_size_ml === 10) price = Number(p.price_10ml);
-      else if (item.decant_size_ml === 30) price = Number(p.price_30ml);
-      return sum + price * item.quantity;
-    }, 0);
+    return this.items.reduce((sum, item) => sum + this.getItemPrice(item) * item.quantity, 0);
+  }
+
+  onSizeChange(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean }, value: string) {
+    if (value === 'full') {
+      item.is_full_bottle = true;
+      const p = item.perfume_id ? this.perfumes.find(pf => pf.id === item.perfume_id) : null;
+      item.decant_size_ml = p ? p.full_ml : 0;
+    } else {
+      item.is_full_bottle = false;
+      item.decant_size_ml = Number(value);
+    }
+  }
+
+  getSizeValue(item: { decant_size_ml: number; is_full_bottle: boolean }): string {
+    return item.is_full_bottle ? 'full' : String(item.decant_size_ml);
   }
 
   getNewOrderTotal(): number {
@@ -240,7 +258,13 @@ export class Orders implements OnInit {
   async save() {
     this.error = '';
     if (!this.selectedCustomerId) { this.error = 'Please select a customer.'; return; }
-    const validItems = this.items.filter(i => i.perfume_id !== null) as any[];
+    const validItems = this.items.filter(i => i.perfume_id !== null).map(i => {
+      if (i.is_full_bottle) {
+        const p = this.perfumes.find(pf => pf.id === i.perfume_id);
+        return { ...i, perfume_id: i.perfume_id!, decant_size_ml: p ? p.full_ml : i.decant_size_ml };
+      }
+      return { ...i, perfume_id: i.perfume_id! };
+    });
     if (!validItems.length) { this.error = 'Add at least one item.'; return; }
     try {
       await this.svc.create(this.selectedCustomerId, validItems, this.orderDiscount, this.orderIsGift);

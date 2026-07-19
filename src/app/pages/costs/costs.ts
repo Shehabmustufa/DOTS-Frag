@@ -29,46 +29,49 @@ export class Costs implements OnInit {
 
   categories: CostCategory[] = ['perfume_bottle','marketing_ads','syringes','vials_5ml','vials_10ml','packaging','gift','other'];
 
-  filterFrom = '';
-  filterTo = '';
   pageSize = 10;
+
+  private _filterFrom = '';
+  get filterFrom() { return this._filterFrom; }
+  set filterFrom(val: string) {
+    this._filterFrom = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  private _filterTo = '';
+  get filterTo() { return this._filterTo; }
+  set filterTo(val: string) {
+    this._filterTo = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  filteredCosts: Cost[] = [];
+  totalPaid = 0;
+  totalPending = 0;
+  totalAll = 0;
+  dayGroups: DayGroup[] = [];
 
   constructor(private svc: CostService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() { this.load(); }
 
-  get filteredCosts(): Cost[] {
+  applyFiltersAndGrouping() {
     let result = this.costs;
-    if (this.filterFrom) {
-      const from = new Date(this.filterFrom);
+    if (this._filterFrom) {
+      const from = new Date(this._filterFrom);
       from.setHours(0, 0, 0, 0);
       result = result.filter(c => new Date(c.created_at!) >= from);
     }
-    if (this.filterTo) {
-      const to = new Date(this.filterTo);
+    if (this._filterTo) {
+      const to = new Date(this._filterTo);
       to.setHours(23, 59, 59, 999);
       result = result.filter(c => new Date(c.created_at!) <= to);
     }
-    return result;
-  }
+    this.filteredCosts = result;
+    this.totalPaid = result.filter(c => c.payment_status === 'paid').reduce((s, c) => s + Number(c.amount), 0);
+    this.totalPending = result.filter(c => c.payment_status === 'pending').reduce((s, c) => s + Number(c.amount), 0);
+    this.totalAll = result.reduce((s, c) => s + Number(c.amount), 0);
 
-  get totalPaid(): number {
-    return this.filteredCosts
-      .filter(c => c.payment_status === 'paid')
-      .reduce((s, c) => s + Number(c.amount), 0);
-  }
-
-  get totalPending(): number {
-    return this.filteredCosts
-      .filter(c => c.payment_status === 'pending')
-      .reduce((s, c) => s + Number(c.amount), 0);
-  }
-
-  get totalAll(): number {
-    return this.filteredCosts.reduce((s, c) => s + Number(c.amount), 0);
-  }
-
-  get dayGroups(): DayGroup[] {
     const map = new Map<string, Cost[]>();
     for (const c of this.filteredCosts) {
       const d = new Date(c.created_at!);
@@ -81,15 +84,14 @@ export class Costs implements OnInit {
       const d = new Date(date + 'T00:00:00');
       const label = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       groups.push({
-        date,
-        label,
-        costs,
+        date, label, costs,
         total: costs.reduce((s, c) => s + Number(c.amount), 0),
         page: 1,
       });
     }
     groups.sort((a, b) => b.date.localeCompare(a.date));
-    return groups;
+    this.dayGroups = groups;
+    this.cdr.markForCheck();
   }
 
   getPagedCosts(group: DayGroup): Cost[] {
@@ -102,8 +104,9 @@ export class Costs implements OnInit {
   }
 
   clearFilters() {
-    this.filterFrom = '';
-    this.filterTo = '';
+    this._filterFrom = '';
+    this._filterTo = '';
+    this.applyFiltersAndGrouping();
   }
 
   async load() {
@@ -111,6 +114,7 @@ export class Costs implements OnInit {
     this.loading = true;
     try {
       this.costs = await this.svc.getAll();
+      this.applyFiltersAndGrouping();
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -141,6 +145,7 @@ export class Costs implements OnInit {
         const idx = this.costs.findIndex(c => c.id === this.editId);
         if (idx !== -1) Object.assign(this.costs[idx], this.form);
         this.costs = [...this.costs];
+        this.applyFiltersAndGrouping();
       } else {
         await this.svc.create(this.form);
         await this.load();
@@ -158,7 +163,7 @@ export class Costs implements OnInit {
     try {
       await this.svc.delete(id);
       this.costs = this.costs.filter(c => c.id !== id);
-      this.cdr.markForCheck();
+      this.applyFiltersAndGrouping();
     } catch (e: any) {
       this.error = e.message;
       this.cdr.markForCheck();

@@ -89,7 +89,7 @@
                     <strong>Items:</strong>
                     <ul class="mb-0 mt-2">
                       <li *ngFor="let item of o.order_items">
-                        {{ item.perfume?.brand?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
+                        {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
                       </li>
                     </ul>
                   </div>
@@ -158,10 +158,11 @@
             </div>
           </div>
         </div>
-        <select class="form-select form-select-sm" [(ngModel)]="item.decant_size_ml" style="flex:1">
-          <option [ngValue]="5">5ml</option>
-          <option [ngValue]="10">10ml</option>
-          <option [ngValue]="30">30ml</option>
+        <select class="form-select form-select-sm" [ngModel]="getSizeValue(item)" (ngModelChange)="onSizeChange(item, $event)" style="flex:1">
+          <option value="5">5ml</option>
+          <option value="10">10ml</option>
+          <option value="30">30ml</option>
+          <option value="full">Full Bottle</option>
         </select>
         <input type="number" class="form-control form-control-sm qty-input" [(ngModel)]="item.quantity" min="1">
         <button class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" *ngIf="items.length > 1">✕</button>
