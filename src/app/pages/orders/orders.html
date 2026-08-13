@@ -15,9 +15,28 @@
     </div>
   </div>
 
+  <div class="mb-3">
+    <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by customer name, mobile, or order #...">
+  </div>
+
   <div class="filter-row mb-3">
-    <div class="filter-group" style="flex:1; min-width:200px;">
-      <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by customer name, mobile, or order #...">
+    <div class="filter-group">
+      <label class="form-label mb-0">Owner</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filterOwner">
+        <option value="">All</option>
+        <option value="exclude">Without Owners</option>
+        <option value="only">Only Owners</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="form-label mb-0">Status</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filterStatus">
+        <option value="">All Statuses</option>
+        <option value="placed">Placed</option>
+        <option value="delivery">Delivery</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
     </div>
     <div class="filter-group">
       <label class="form-label mb-0">From</label>
@@ -27,7 +46,7 @@
       <label class="form-label mb-0">To</label>
       <input type="date" class="form-control form-control-sm" [(ngModel)]="filterTo">
     </div>
-    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo">Clear</button>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo || filterOwner || filterStatus">Clear</button>
   </div>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
@@ -55,9 +74,10 @@
           <tbody>
             <ng-container *ngFor="let o of getPagedOrders(group)">
               <tr (click)="toggleExpand(o.id!)" style="cursor:pointer"
-                  [class.gift-row]="o.is_gift"
-                  [class.discount-row]="!o.is_gift && (o.discount_percentage || 0) > 0"
-                  [class.cancelled-row]="o.order_status === 'cancelled'">
+                  [class.gift-row]="o.is_gift && !isOwnerOrder(o)"
+                  [class.discount-row]="!o.is_gift && !isOwnerOrder(o) && (o.discount_percentage || 0) > 0"
+                  [class.cancelled-row]="o.order_status === 'cancelled'"
+                  [class.owner-row]="isOwnerOrder(o)">
                 <td><strong>#{{ o.id }}</strong></td>
                 <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
                 <td>{{ o.order_items?.length || 0 }}</td>
@@ -89,7 +109,12 @@
                     <strong>Items:</strong>
                     <ul class="mb-0 mt-2">
                       <li *ngFor="let item of o.order_items">
-                        {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
+                        <span *ngIf="item.is_refundable_bottle">
+                          {{ item.brand?.name || 'Unknown' }} — Refundable Bottle (Profit: {{ (item.bottle_sale_price! - item.bottle_cost_price!) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}) × {{ item.quantity }}
+                        </span>
+                        <span *ngIf="!item.is_refundable_bottle">
+                          {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
+                        </span>
                       </li>
                     </ul>
                   </div>
@@ -148,24 +173,51 @@
         <strong>Items</strong>
         <button class="btn btn-sm btn-outline-primary" (click)="addItem()">+ Item</button>
       </div>
-      <div *ngFor="let item of items; let i = index" class="order-item-row">
-        <div class="search-dropdown" style="flex:2">
-          <input class="form-control form-control-sm" [(ngModel)]="perfumeSearches[i]" placeholder="Search perfume..."
-            (focus)="perfumeDropdownOpen=i" (input)="perfumeDropdownOpen=i; item.perfume_id=null">
-          <div class="search-dropdown-list" *ngIf="perfumeDropdownOpen === i && getFilteredPerfumes(i).length > 0">
-            <div class="search-dropdown-item" *ngFor="let p of getFilteredPerfumes(i)" (mousedown)="selectPerfume(i, p)">
-              <strong>{{ p.brand?.company?.name }}</strong> — {{ p.brand?.name }}
+      <div *ngFor="let item of items; let i = index" class="order-item-block">
+        <div class="order-item-row">
+          <!-- Perfume search (for decant/full bottle) -->
+          <div class="search-dropdown" style="flex:2" *ngIf="!item.is_refundable_bottle">
+            <input class="form-control form-control-sm" [(ngModel)]="perfumeSearches[i]" placeholder="Search perfume..."
+              (focus)="perfumeDropdownOpen=i" (input)="perfumeDropdownOpen=i; item.perfume_id=null">
+            <div class="search-dropdown-list" *ngIf="perfumeDropdownOpen === i && getFilteredPerfumes(i).length > 0">
+              <div class="search-dropdown-item" *ngFor="let p of getFilteredPerfumes(i)" (mousedown)="selectPerfume(i, p)">
+                <strong>{{ p.brand?.company?.name }}</strong> — {{ p.brand?.name }}
+              </div>
             </div>
           </div>
+          <!-- Brand search (for refundable bottle) -->
+          <div class="search-dropdown" style="flex:2" *ngIf="item.is_refundable_bottle">
+            <input class="form-control form-control-sm" [(ngModel)]="perfumeSearches[i]" placeholder="Search brand..."
+              (focus)="perfumeDropdownOpen=i" (input)="perfumeDropdownOpen=i; item.brand_id=null">
+            <div class="search-dropdown-list" *ngIf="perfumeDropdownOpen === i && getFilteredBrands(i).length > 0">
+              <div class="search-dropdown-item" *ngFor="let b of getFilteredBrands(i)" (mousedown)="selectBrand(i, b)">
+                <strong>{{ b.company?.name }}</strong> — {{ b.name }}
+              </div>
+            </div>
+          </div>
+          <select class="form-select form-select-sm" [ngModel]="getSizeValue(item)" (ngModelChange)="onSizeChange(item, $event)" style="flex:1">
+            <option value="5">5ml</option>
+            <option value="10">10ml</option>
+            <option value="30">30ml</option>
+            <option value="full">Full Bottle</option>
+            <option value="refundable">Refundable Bottle</option>
+          </select>
+          <input type="number" class="form-control form-control-sm qty-input" [(ngModel)]="item.quantity" min="1">
+          <button class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" *ngIf="items.length > 1">✕</button>
         </div>
-        <select class="form-select form-select-sm" [ngModel]="getSizeValue(item)" (ngModelChange)="onSizeChange(item, $event)" style="flex:1">
-          <option value="5">5ml</option>
-          <option value="10">10ml</option>
-          <option value="30">30ml</option>
-          <option value="full">Full Bottle</option>
-        </select>
-        <input type="number" class="form-control form-control-sm qty-input" [(ngModel)]="item.quantity" min="1">
-        <button class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" *ngIf="items.length > 1">✕</button>
+        <div class="refundable-fields" *ngIf="item.is_refundable_bottle">
+          <div class="refundable-field">
+            <label class="form-label mb-0">Cost (EGP)</label>
+            <input type="number" class="form-control form-control-sm" [(ngModel)]="item.bottle_cost_price" placeholder="Purchase cost">
+          </div>
+          <div class="refundable-field">
+            <label class="form-label mb-0">Sale (EGP)</label>
+            <input type="number" class="form-control form-control-sm" [(ngModel)]="item.bottle_sale_price" placeholder="Sell price">
+          </div>
+          <div class="refundable-profit">
+            Profit: {{ (item.bottle_sale_price - item.bottle_cost_price) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}
+          </div>
+        </div>
       </div>
 
       <div class="order-summary mt-3" *ngIf="getNewOrderSubtotal() > 0">

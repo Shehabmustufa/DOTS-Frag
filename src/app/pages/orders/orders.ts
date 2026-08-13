@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { OrderService, Order } from '../../core/services/order';
 import { CustomerService, Customer } from '../../core/services/customer';
 import { PerfumeService, Perfume } from '../../core/services/perfume';
+import { BrandService, Brand } from '../../core/services/brand';
 import { CostService } from '../../core/services/cost';
 
 interface DayGroup {
@@ -24,13 +25,34 @@ export class Orders implements OnInit {
   orders: Order[] = [];
   customers: Customer[] = [];
   perfumes: Perfume[] = [];
+  brands: Brand[] = [];
   error = '';
   loading = false;
+
+  private readonly ownerNumbers = new Set(['01127755134', '01113171088', '01148400440', '01010459780']);
 
   filteredOrders: Order[] = [];
   totalRevenue = 0;
   totalOrders = 0;
   dayGroups: DayGroup[] = [];
+
+  private _filterOwner: '' | 'exclude' | 'only' = '';
+  get filterOwner() { return this._filterOwner; }
+  set filterOwner(val: '' | 'exclude' | 'only') {
+    this._filterOwner = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  private _filterStatus: '' | 'placed' | 'delivery' | 'delivered' | 'cancelled' = '';
+  get filterStatus() { return this._filterStatus; }
+  set filterStatus(val: '' | 'placed' | 'delivery' | 'delivered' | 'cancelled') {
+    this._filterStatus = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  isOwnerOrder(o: Order): boolean {
+    return !!o.customer?.mobile_number && this.ownerNumbers.has(o.customer.mobile_number);
+  }
 
   private _searchQuery = '';
   get searchQuery() { return this._searchQuery; }
@@ -56,7 +78,7 @@ export class Orders implements OnInit {
   pageSize = 10;
   showModal = false;
   selectedCustomerId: number | null = null;
-  items: { perfume_id: number | null; decant_size_ml: number; quantity: number; is_full_bottle: boolean }[] = [];
+  items: { perfume_id: number | null; brand_id: number | null; decant_size_ml: number; quantity: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }[] = [];
   orderDiscount = 0;
   orderIsGift = false;
   expandedOrderId: number | null = null;
@@ -70,6 +92,7 @@ export class Orders implements OnInit {
     private svc: OrderService,
     private customerSvc: CustomerService,
     private perfumeSvc: PerfumeService,
+    private brandSvc: BrandService,
     private costSvc: CostService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -80,10 +103,11 @@ export class Orders implements OnInit {
     this.error = '';
     this.loading = true;
     try {
-      [this.orders, this.customers, this.perfumes] = await Promise.all([
+      [this.orders, this.customers, this.perfumes, this.brands] = await Promise.all([
         this.svc.getAll(),
         this.customerSvc.getAll(),
-        this.perfumeSvc.getAll()
+        this.perfumeSvc.getAll(),
+        this.brandSvc.getAll()
       ]);
       this.applyFiltersAndGrouping();
     } catch (e: any) {
@@ -104,6 +128,16 @@ export class Orders implements OnInit {
         o.customer?.mobile_number?.includes(q) ||
         String(o.id).includes(q)
       );
+    }
+
+    if (this._filterOwner === 'exclude') {
+      result = result.filter(o => !this.isOwnerOrder(o));
+    } else if (this._filterOwner === 'only') {
+      result = result.filter(o => this.isOwnerOrder(o));
+    }
+
+    if (this._filterStatus) {
+      result = result.filter(o => o.order_status === this._filterStatus);
     }
 
     if (this._filterFrom) {
@@ -146,6 +180,8 @@ export class Orders implements OnInit {
   clearFilters() {
     this._filterFrom = '';
     this._filterTo = '';
+    this._filterOwner = '';
+    this._filterStatus = '';
     this.applyFiltersAndGrouping();
   }
 
@@ -181,16 +217,33 @@ export class Orders implements OnInit {
     this.customerDropdownOpen = false;
   }
 
+  getFilteredBrands(index: number): Brand[] {
+    const q = (this.perfumeSearches[index] || '').toLowerCase().trim();
+    if (!q) return this.brands;
+    return this.brands.filter(b =>
+      b.name.toLowerCase().includes(q) ||
+      (b.company?.name || '').toLowerCase().includes(q)
+    );
+  }
+
   selectPerfume(index: number, p: Perfume) {
     this.items[index].perfume_id = p.id!;
+    this.items[index].brand_id = null;
     this.perfumeSearches[index] = p.brand?.name || `Perfume #${p.id}`;
+    this.perfumeDropdownOpen = null;
+  }
+
+  selectBrand(index: number, b: Brand) {
+    this.items[index].brand_id = b.id!;
+    this.items[index].perfume_id = null;
+    this.perfumeSearches[index] = `${b.company?.name || ''} — ${b.name}`;
     this.perfumeDropdownOpen = null;
   }
 
   openAdd() {
     this.selectedCustomerId = null;
     this.customerSearch = '';
-    this.items = [{ perfume_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false }];
+    this.items = [{ perfume_id: null, brand_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false, is_refundable_bottle: false, bottle_sale_price: 0, bottle_cost_price: 0 }];
     this.perfumeSearches = [''];
     this.orderDiscount = 0;
     this.orderIsGift = false;
@@ -198,7 +251,7 @@ export class Orders implements OnInit {
   }
 
   addItem() {
-    this.items.push({ perfume_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false });
+    this.items.push({ perfume_id: null, brand_id: null, decant_size_ml: 5, quantity: 1, is_full_bottle: false, is_refundable_bottle: false, bottle_sale_price: 0, bottle_cost_price: 0 });
     this.perfumeSearches.push('');
   }
 
@@ -210,6 +263,9 @@ export class Orders implements OnInit {
   orderTotal(o: Order): number {
     if (!o.order_items || o.order_status === 'cancelled') return 0;
     const subtotal = o.order_items.reduce((sum, item) => {
+      if (item.is_refundable_bottle) {
+        return sum + (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
+      }
       if (!item.perfume) return sum;
       let price = 0;
       if (item.is_full_bottle) price = Number(item.perfume.price_original);
@@ -221,7 +277,10 @@ export class Orders implements OnInit {
     return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
   }
 
-  getItemPrice(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean }): number {
+  getItemPrice(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }): number {
+    if (item.is_refundable_bottle) {
+      return (Number(item.bottle_sale_price) || 0) - (Number(item.bottle_cost_price) || 0);
+    }
     if (!item.perfume_id) return 0;
     const p = this.perfumes.find(pf => pf.id === item.perfume_id);
     if (!p) return 0;
@@ -236,18 +295,44 @@ export class Orders implements OnInit {
     return this.items.reduce((sum, item) => sum + this.getItemPrice(item) * item.quantity, 0);
   }
 
-  onSizeChange(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean }, value: string) {
-    if (value === 'full') {
+  onSizeChange(item: { perfume_id: number | null; brand_id: number | null; decant_size_ml: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }, value: string) {
+    const wasRefundable = item.is_refundable_bottle;
+    if (value === 'refundable') {
+      item.is_refundable_bottle = true;
+      item.is_full_bottle = false;
+      item.decant_size_ml = 0;
+      if (!wasRefundable) {
+        item.perfume_id = null;
+        item.brand_id = null;
+        const idx = this.items.indexOf(item as any);
+        if (idx >= 0) this.perfumeSearches[idx] = '';
+      }
+    } else if (value === 'full') {
+      item.is_refundable_bottle = false;
       item.is_full_bottle = true;
+      if (wasRefundable) {
+        item.brand_id = null;
+        item.perfume_id = null;
+        const idx = this.items.indexOf(item as any);
+        if (idx >= 0) this.perfumeSearches[idx] = '';
+      }
       const p = item.perfume_id ? this.perfumes.find(pf => pf.id === item.perfume_id) : null;
       item.decant_size_ml = p ? p.full_ml : 0;
     } else {
+      item.is_refundable_bottle = false;
       item.is_full_bottle = false;
       item.decant_size_ml = Number(value);
+      if (wasRefundable) {
+        item.brand_id = null;
+        item.perfume_id = null;
+        const idx = this.items.indexOf(item as any);
+        if (idx >= 0) this.perfumeSearches[idx] = '';
+      }
     }
   }
 
-  getSizeValue(item: { decant_size_ml: number; is_full_bottle: boolean }): string {
+  getSizeValue(item: { decant_size_ml: number; is_full_bottle: boolean; is_refundable_bottle: boolean }): string {
+    if (item.is_refundable_bottle) return 'refundable';
     return item.is_full_bottle ? 'full' : String(item.decant_size_ml);
   }
 
@@ -258,7 +343,10 @@ export class Orders implements OnInit {
   async save() {
     this.error = '';
     if (!this.selectedCustomerId) { this.error = 'Please select a customer.'; return; }
-    const validItems = this.items.filter(i => i.perfume_id !== null).map(i => {
+    const validItems = this.items.filter(i => i.perfume_id !== null || i.brand_id !== null).map(i => {
+      if (i.is_refundable_bottle) {
+        return { ...i, perfume_id: null, brand_id: i.brand_id!, decant_size_ml: 0 };
+      }
       if (i.is_full_bottle) {
         const p = this.perfumes.find(pf => pf.id === i.perfume_id);
         return { ...i, perfume_id: i.perfume_id!, decant_size_ml: p ? p.full_ml : i.decant_size_ml };
@@ -286,27 +374,18 @@ export class Orders implements OnInit {
     }
   }
 
-async updateStatus(o: Order, newStatus: Order['order_status']) {
+  async updateStatus(o: Order, newStatus: Order['order_status']) {
     if (o.order_status === 'cancelled') return;
     try {
-
-      if (newStatus === 'cancelled' && o.order_items) {
+      if (newStatus === 'cancelled') {
         if (!confirm('Cancel this order? Items will be returned to inventory.')) {
           await this.load();
           return;
-        } 
-        for (const item of o.order_items) {
-          const perfume = await this.perfumeSvc.getById(item.perfume_id);
-          if (perfume) {
-            const returnMl = item.decant_size_ml * item.quantity;
-            await this.perfumeSvc.update(perfume.id!, {
-              current_ml: perfume.current_ml + returnMl,
-            });
-          }
         }
+        await this.svc.cancel(o.id!);
+      } else {
+        await this.svc.updateStatus(o.id!, newStatus);
       }
-
-      await this.svc.updateStatus(o.id!, newStatus);
       await this.load();
     } catch (e: any) {
       this.error = e.message;

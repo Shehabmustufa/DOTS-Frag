@@ -23,6 +23,7 @@ export class Customers implements OnInit {
   form: Partial<Customer> = { name: '', mobile_number: '', location: '', found_via: 'direct' };
 
   foundViaOptions = ['direct', 'social media', 'referral', 'search', 'other'];
+  private readonly ownerNumbers = new Set(['01127755134', '01113171088', '01148400440', '01010459780']);
 
   showOrdersModal = false;
   selectedCustomer: Customer | null = null;
@@ -68,6 +69,10 @@ export class Customers implements OnInit {
     return this.giftCustomerIds.has(c.id!);
   }
 
+  isOwner(c: Customer): boolean {
+    return this.ownerNumbers.has(c.mobile_number);
+  }
+
   hasDiscount(o: Order): boolean {
     return (Number(o.discount_percentage) || 0) > 0;
   }
@@ -90,9 +95,13 @@ export class Customers implements OnInit {
   orderTotal(o: Order): number {
     if (!o.order_items) return 0;
     const subtotal = o.order_items.reduce((sum, item) => {
+      if (item.is_refundable_bottle) {
+        return sum + (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
+      }
       if (!item.perfume) return sum;
       let price = 0;
-      if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
+      if (item.is_full_bottle) price = Number(item.perfume.price_original);
+      else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
       else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
       else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;

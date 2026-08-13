@@ -23,11 +23,13 @@
       <tbody>
         <tr *ngFor="let c of filteredCustomers; let i = index"
             (click)="viewOrders(c)" style="cursor:pointer"
-            [class.gift-customer-row]="isGiftCustomer(c)">
+            [class.gift-customer-row]="isGiftCustomer(c) && !isOwner(c)"
+            [class.owner-customer-row]="isOwner(c)">
           <td class="text-muted">{{ i + 1 }}</td>
           <td>
             <strong>{{ c.name }}</strong>
-            <span *ngIf="isGiftCustomer(c)" class="badge bg-warning text-dark ms-1" style="font-size:10px;">🎁</span>
+            <span *ngIf="isOwner(c)" class="badge ms-1" style="font-size:10px; background:#1a237e; color:white;">Owner</span>
+            <span *ngIf="isGiftCustomer(c) && !isOwner(c)" class="badge bg-warning text-dark ms-1" style="font-size:10px;">🎁</span>
           </td>
           <td><a href="tel:{{ c.mobile_number }}" (click)="$event.stopPropagation()">{{ c.mobile_number }}</a></td>
           <td>{{ c.location }}</td>
@@ -117,7 +119,12 @@
           </div>
           <ul class="order-card-items">
             <li *ngFor="let item of o.order_items">
-              {{ item.perfume?.brand?.name }} — {{ item.decant_size_ml }}ml × {{ item.quantity }}
+              <span *ngIf="item.is_refundable_bottle">
+                {{ item.brand?.name || 'Unknown' }} — Refundable Bottle (Profit: {{ (item.bottle_sale_price! - item.bottle_cost_price!) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}) × {{ item.quantity }}
+              </span>
+              <span *ngIf="!item.is_refundable_bottle">
+                {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
+              </span>
             </li>
           </ul>
         </div>
