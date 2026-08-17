@@ -1,0 +1,106 @@
+<div class="page-container">
+  <div class="page-header">
+    <h2>📦 Packaging Inventory</h2>
+    <button class="btn btn-primary" (click)="openAdd()">+ Add Item</button>
+  </div>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Loading packaging...</span>
+  </div>
+
+  <div class="table-responsive" *ngIf="!loading">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Remaining</th>
+          <th>Stock %</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of items">
+          <td class="fw-bold">{{ item.name }}</td>
+          <td><span class="badge bg-secondary">{{ item.type }}</span></td>
+          <td>{{ item.remaining_count }} / {{ item.max_count }}</td>
+          <td>
+            <div class="stock-bar" [class]="getStatusColor(item)">
+              <div class="stock-fill" [style.width.%]="getPercentage(item)">
+                {{ getPercentage(item) }}%
+              </div>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-success me-1" (click)="openRestock(item)" title="Restock">+</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(item)" title="Edit">✎</button>
+            <button class="btn btn-sm btn-outline-danger" (click)="remove(item.id!)" title="Delete">🗑</button>
+          </td>
+        </tr>
+        <tr *ngIf="items.length === 0">
+          <td colspan="5" class="text-center text-muted py-4">No packaging items yet. Add one to get started.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div *ngIf="showModal">
+  <div class="modal-backdrop-custom" (click)="showModal=false"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>{{ isEdit ? 'Edit Packaging' : 'Add Packaging Item' }}</h5>
+      <button class="btn-close" (click)="showModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="mb-3">
+        <label class="form-label">Name *</label>
+        <input class="form-control" [(ngModel)]="form.name" placeholder="e.g. 5ml Bottle">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Type *</label>
+        <input class="form-control" [(ngModel)]="form.type" placeholder="e.g. Bottle, Box, Bag">
+      </div>
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">Max Count</label>
+          <input type="number" class="form-control" [(ngModel)]="form.max_count" min="0">
+        </div>
+        <div class="col-6" *ngIf="isEdit">
+          <label class="form-label">Remaining Count</label>
+          <input type="number" class="form-control" [(ngModel)]="form.remaining_count" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary me-2" (click)="showModal=false">Cancel</button>
+      <button class="btn btn-primary" (click)="save()">{{ isEdit ? 'Update' : 'Add' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restock Modal -->
+<div *ngIf="showRestockModal">
+  <div class="modal-backdrop-custom" (click)="showRestockModal=false"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>Restock: {{ restockName }}</h5>
+      <button class="btn-close" (click)="showRestockModal=false"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="mb-3">
+        <label class="form-label">Add Quantity</label>
+        <input type="number" class="form-control" [(ngModel)]="restockQty" min="1" placeholder="How many to add?">
+      </div>
+      <p class="text-muted" style="font-size:13px;">This will increase both max count and remaining count by the entered amount.</p>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary me-2" (click)="showRestockModal=false">Cancel</button>
+      <button class="btn btn-success" (click)="saveRestock()">Restock</button>
+    </div>
+  </div>
+</div>

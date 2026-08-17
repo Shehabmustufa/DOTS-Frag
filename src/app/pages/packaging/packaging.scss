@@ -1,0 +1,41 @@
+.stock-bar {
+  width: 100%;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .stock-fill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: width 0.3s ease;
+  }
+
+  &.status-high {
+    background: #e8f5e9;
+    .stock-fill { background: linear-gradient(90deg, #66bb6a, #4caf50); }
+  }
+
+  &.status-medium {
+    background: #fff3e0;
+    .stock-fill { background: linear-gradient(90deg, #ffa726, #ff9800); }
+  }
+
+  &.status-low {
+    background: #ffebee;
+    .stock-fill { background: linear-gradient(90deg, #ef5350, #f44336); }
+  }
+
+  &.status-empty {
+    background: #f5f5f5;
+    .stock-fill { background: #424242; color: #fff; }
+  }
+}

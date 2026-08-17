@@ -103,7 +103,7 @@ export class Customers implements OnInit {
       if (item.is_full_bottle) price = Number(item.perfume.price_original);
       else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
       else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
-      else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
+      else if (item.decant_size_ml === 30 || item.decant_size_ml === 35) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;
     }, 0);
     const discount = Number(o.discount_percentage) || 0;

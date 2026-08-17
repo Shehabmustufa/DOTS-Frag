@@ -26,6 +26,16 @@ export class Perfumes implements OnInit {
   selectedCompanyId: number | null = null;
   costPrice = 0;
 
+  private _searchQuery = '';
+  get searchQuery() { return this._searchQuery; }
+  set searchQuery(val: string) { this._searchQuery = val; this.applyFilter(); }
+
+  private _filterCompanyId: number | null = null;
+  get filterCompanyId() { return this._filterCompanyId; }
+  set filterCompanyId(val: number | null) { this._filterCompanyId = val; this.applyFilter(); }
+
+  filteredPerfumes: Perfume[] = [];
+
   expandedPerfumeId: number | null = null;
   expandedBottles: PerfumeBottle[] = [];
   editingBottleId: number | null = null;
@@ -57,12 +67,34 @@ export class Perfumes implements OnInit {
       this.perfumes = p || [];
       this.brands = b || [];
       this.companies = c || [];
+      this.applyFilter();
     } catch (e: any) {
       this.error = e?.message || 'Failed to load data';
     } finally {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  applyFilter() {
+    let result = this.perfumes;
+    if (this._searchQuery.trim()) {
+      const q = this._searchQuery.toLowerCase().trim();
+      result = result.filter(p =>
+        (p.brand?.name || '').toLowerCase().includes(q) ||
+        (p.brand?.company?.name || '').toLowerCase().includes(q)
+      );
+    }
+    if (this._filterCompanyId) {
+      result = result.filter(p => p.brand?.company_id === this._filterCompanyId);
+    }
+    this.filteredPerfumes = result;
+  }
+
+  clearFilters() {
+    this._searchQuery = '';
+    this._filterCompanyId = null;
+    this.applyFilter();
   }
 
   getFilteredBrands(): Brand[] {
@@ -207,12 +239,22 @@ export class Perfumes implements OnInit {
     this.savingRowId = p.id!;
     this.error = '';
     try {
-      const updates: any = {};
-      updates[field] = field.startsWith('price') || field.startsWith('full') || field.startsWith('current') || field.startsWith('bottles')
-        ? Number(value)
-        : value;
-      await this.svc.update(p.id!, updates);
-      Object.assign(p, updates);
+      if (field === 'current_ml') {
+        const bottles = await this.svc.getBottles(p.id!);
+        if (bottles.length === 1) {
+          await this.svc.updateBottleMl(bottles[0].id!, Number(value));
+        } else {
+          await this.svc.update(p.id!, { current_ml: Number(value) });
+        }
+        await this.load();
+      } else {
+        const updates: any = {};
+        updates[field] = field.startsWith('price') || field.startsWith('full') || field.startsWith('bottles')
+          ? Number(value)
+          : value;
+        await this.svc.update(p.id!, updates);
+        Object.assign(p, updates);
+      }
       this.editingRowId = null;
     } catch (e: any) {
       this.error = `Failed to save: ${e?.message}`;

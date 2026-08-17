@@ -4,6 +4,21 @@
     <button class="btn btn-primary" (click)="openAdd()">+ Add Perfume</button>
   </div>
 
+  <div class="mb-3">
+    <input class="form-control" [(ngModel)]="searchQuery" placeholder="Search by brand or company name...">
+  </div>
+
+  <div class="filter-row mb-3">
+    <div class="filter-group">
+      <label class="form-label mb-0">Company</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filterCompanyId">
+        <option [ngValue]="null">All Companies</option>
+        <option *ngFor="let c of companies" [ngValue]="c.id">{{ c.name }}</option>
+      </select>
+    </div>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="searchQuery || filterCompanyId">Clear</button>
+  </div>
+
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
   <div *ngIf="loading" class="loading-container">
@@ -23,13 +38,13 @@
           <th>Bottles</th>
           <th>5ml</th>
           <th>10ml</th>
-          <th>30ml</th>
+          <th>35ml</th>
           <th>Full Bottle</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <ng-container *ngFor="let p of perfumes">
+        <ng-container *ngFor="let p of filteredPerfumes">
           <tr [class.expandable-row]="p.bottles_available > 1">
             <td class="expand-cell" (click)="toggleExpand(p)">
               <span *ngIf="p.bottles_available > 1" class="expand-icon">
@@ -101,7 +116,7 @@
             </td>
           </tr>
         </ng-container>
-        <tr *ngIf="perfumes.length === 0">
+        <tr *ngIf="filteredPerfumes.length === 0">
           <td colspan="11" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
         </tr>
       </tbody>
@@ -165,7 +180,7 @@
           <input type="number" class="form-control" [(ngModel)]="form.price_10ml">
         </div>
         <div class="col-4">
-          <label class="form-label">Price 30ml (EGP)</label>
+          <label class="form-label">Price 35ml (EGP)</label>
           <input type="number" class="form-control" [(ngModel)]="form.price_30ml">
         </div>
       </div>

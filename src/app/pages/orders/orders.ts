@@ -6,6 +6,8 @@ import { CustomerService, Customer } from '../../core/services/customer';
 import { PerfumeService, Perfume } from '../../core/services/perfume';
 import { BrandService, Brand } from '../../core/services/brand';
 import { CostService } from '../../core/services/cost';
+import { DecantService } from '../../core/services/decant';
+import { PackagingService, PackagingItem } from '../../core/services/packaging';
 
 interface DayGroup {
   date: string;
@@ -26,6 +28,8 @@ export class Orders implements OnInit {
   customers: Customer[] = [];
   perfumes: Perfume[] = [];
   brands: Brand[] = [];
+  packagingItems: PackagingItem[] = [];
+  decantInventory = new Map<string, number>();
   error = '';
   loading = false;
 
@@ -34,6 +38,7 @@ export class Orders implements OnInit {
   filteredOrders: Order[] = [];
   totalRevenue = 0;
   totalOrders = 0;
+  totalCollected = 0;
   dayGroups: DayGroup[] = [];
 
   private _filterOwner: '' | 'exclude' | 'only' = '';
@@ -79,9 +84,13 @@ export class Orders implements OnInit {
   showModal = false;
   selectedCustomerId: number | null = null;
   items: { perfume_id: number | null; brand_id: number | null; decant_size_ml: number; quantity: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }[] = [];
+  newOrderPackaging: { packaging_item_id: number; quantity: number }[] = [];
   orderDiscount = 0;
   orderIsGift = false;
   expandedOrderId: number | null = null;
+
+  editingPackagingOrderId: number | null = null;
+  packagingEdit: { packaging_item_id: number; quantity: number }[] = [];
 
   customerSearch = '';
   customerDropdownOpen = false;
@@ -94,6 +103,8 @@ export class Orders implements OnInit {
     private perfumeSvc: PerfumeService,
     private brandSvc: BrandService,
     private costSvc: CostService,
+    private decantSvc: DecantService,
+    private packagingSvc: PackagingService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -103,12 +114,24 @@ export class Orders implements OnInit {
     this.error = '';
     this.loading = true;
     try {
-      [this.orders, this.customers, this.perfumes, this.brands] = await Promise.all([
+      const [orders, customers, perfumes, brands, decants, packaging] = await Promise.all([
         this.svc.getAll(),
         this.customerSvc.getAll(),
         this.perfumeSvc.getAll(),
-        this.brandSvc.getAll()
+        this.brandSvc.getAll(),
+        this.decantSvc.getAll(),
+        this.packagingSvc.getAll()
       ]);
+      this.orders = orders;
+      this.customers = customers;
+      this.perfumes = perfumes;
+      this.brands = brands;
+      this.packagingItems = packaging;
+      this.decantInventory = new Map();
+      for (const d of decants) {
+        const key = `${d.perfume_id}:${d.size_ml}`;
+        this.decantInventory.set(key, (this.decantInventory.get(key) || 0) + d.size_ml * d.quantity);
+      }
       this.applyFiltersAndGrouping();
     } catch (e: any) {
       this.error = e?.message || 'Unknown error';
@@ -154,6 +177,9 @@ export class Orders implements OnInit {
     this.filteredOrders = result;
     this.totalOrders = result.length;
     this.totalRevenue = result.reduce((s, o) => s + this.orderTotal(o), 0);
+    this.totalCollected = result
+      .filter(o => o.is_money_collected && o.order_status !== 'cancelled')
+      .reduce((s, o) => s + this.orderTotal(o), 0);
 
     const map = new Map<string, Order[]>();
     for (const o of this.filteredOrders) {
@@ -247,6 +273,10 @@ export class Orders implements OnInit {
     this.perfumeSearches = [''];
     this.orderDiscount = 0;
     this.orderIsGift = false;
+    this.newOrderPackaging = this.packagingItems.map(pi => ({
+      packaging_item_id: pi.id!,
+      quantity: 0
+    }));
     this.showModal = true;
   }
 
@@ -271,7 +301,7 @@ export class Orders implements OnInit {
       if (item.is_full_bottle) price = Number(item.perfume.price_original);
       else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
       else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
-      else if (item.decant_size_ml === 30) price = Number(item.perfume.price_30ml);
+      else if (item.decant_size_ml === 30 || item.decant_size_ml === 35) price = Number(item.perfume.price_30ml);
       return sum + price * item.quantity;
     }, 0);
     return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
@@ -287,7 +317,7 @@ export class Orders implements OnInit {
     if (item.is_full_bottle) return Number(p.price_original);
     if (item.decant_size_ml === 5) return Number(p.price_5ml);
     if (item.decant_size_ml === 10) return Number(p.price_10ml);
-    if (item.decant_size_ml === 30) return Number(p.price_30ml);
+    if (item.decant_size_ml === 30 || item.decant_size_ml === 35) return Number(p.price_30ml);
     return 0;
   }
 
@@ -340,6 +370,58 @@ export class Orders implements OnInit {
     return Math.round(this.getNewOrderSubtotal() * (1 - (this.orderDiscount || 0) / 100));
   }
 
+  // --- Packaging helpers ---
+
+  getPackagingName(id: number): string {
+    return this.packagingItems.find(p => p.id === id)?.name || 'Unknown';
+  }
+
+  getPackagingType(id: number): string {
+    return this.packagingItems.find(p => p.id === id)?.type || '';
+  }
+
+  getPackagingAvailable(id: number): number {
+    return this.packagingItems.find(p => p.id === id)?.remaining_count || 0;
+  }
+
+  startEditPackaging(o: Order) {
+    this.editingPackagingOrderId = o.id!;
+    this.packagingEdit = this.packagingItems.map(pi => {
+      const existing = o.order_packaging?.find(op => op.packaging_item_id === pi.id!);
+      return { packaging_item_id: pi.id!, quantity: existing?.quantity || 0 };
+    });
+  }
+
+  async savePackaging(orderId: number) {
+    this.error = '';
+    const items = this.packagingEdit.filter(p => p.quantity > 0);
+    try {
+      await this.packagingSvc.saveOrderPackaging(orderId, items);
+      this.editingPackagingOrderId = null;
+      await this.load();
+    } catch (e: any) {
+      this.error = e.message;
+      this.cdr.markForCheck();
+    }
+  }
+
+  // --- Money collection ---
+
+  async toggleCollected(o: Order) {
+    try {
+      const newValue = !o.is_money_collected;
+      await this.svc.toggleMoneyCollected(o.id!, newValue);
+      o.is_money_collected = newValue;
+      this.applyFiltersAndGrouping();
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.error = e.message;
+      this.cdr.markForCheck();
+    }
+  }
+
+  // --- Save order ---
+
   async save() {
     this.error = '';
     if (!this.selectedCustomerId) { this.error = 'Please select a customer.'; return; }
@@ -354,8 +436,45 @@ export class Orders implements OnInit {
       return { ...i, perfume_id: i.perfume_id! };
     });
     if (!validItems.length) { this.error = 'Add at least one item.'; return; }
+    const decantUsed = new Map<string, number>();
+    const bottleNeeded = new Map<number, number>();
+    for (const item of validItems) {
+      if (item.is_refundable_bottle || !item.perfume_id) continue;
+      const totalNeeded = item.decant_size_ml * item.quantity;
+      const decantKey = `${item.perfume_id}:${item.decant_size_ml}`;
+      const decantTotal = this.decantInventory.get(decantKey) || 0;
+      const alreadyUsed = decantUsed.get(decantKey) || 0;
+      const decantAvail = Math.max(0, decantTotal - alreadyUsed);
+      const fromDecants = Math.min(totalNeeded, decantAvail);
+      decantUsed.set(decantKey, alreadyUsed + fromDecants);
+      const fromBottles = totalNeeded - fromDecants;
+      bottleNeeded.set(item.perfume_id, (bottleNeeded.get(item.perfume_id) || 0) + fromBottles);
+    }
+    for (const [perfumeId, needed] of bottleNeeded) {
+      const perfume = this.perfumes.find(p => p.id === perfumeId);
+      if (!perfume) { this.error = 'Perfume not found.'; this.cdr.markForCheck(); return; }
+      if (needed > perfume.current_ml) {
+        this.error = `Not enough inventory for ${perfume.brand?.name || 'perfume'}. Available: ${perfume.current_ml}ml in bottles, Need: ${needed}ml`;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    const pkgItems = this.newOrderPackaging.filter(p => p.quantity > 0);
+    for (const pkg of pkgItems) {
+      const pi = this.packagingItems.find(p => p.id === pkg.packaging_item_id);
+      if (pi && pkg.quantity > pi.remaining_count) {
+        this.error = `Not enough packaging: ${pi.name}. Available: ${pi.remaining_count}, Requested: ${pkg.quantity}`;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
     try {
-      await this.svc.create(this.selectedCustomerId, validItems, this.orderDiscount, this.orderIsGift);
+      const orderId = await this.svc.create(this.selectedCustomerId, validItems, this.orderDiscount, this.orderIsGift);
+      if (pkgItems.length > 0) {
+        await this.packagingSvc.saveOrderPackaging(orderId, pkgItems);
+      }
       if (this.orderIsGift) {
         const total = this.getNewOrderTotal();
         const customer = this.customers.find(c => c.id === this.selectedCustomerId);
@@ -376,6 +495,12 @@ export class Orders implements OnInit {
 
   async updateStatus(o: Order, newStatus: Order['order_status']) {
     if (o.order_status === 'cancelled') return;
+    if ((newStatus === 'delivery' || newStatus === 'delivered') && (!o.order_packaging || o.order_packaging.length === 0)) {
+      this.error = 'Packaging must be assigned before moving to delivery/delivered.';
+      await this.load();
+      this.cdr.markForCheck();
+      return;
+    }
     try {
       if (newStatus === 'cancelled') {
         if (!confirm('Cancel this order? Items will be returned to inventory.')) {
@@ -401,5 +526,6 @@ export class Orders implements OnInit {
 
   toggleExpand(id: number) {
     this.expandedOrderId = this.expandedOrderId === id ? null : id;
+    this.editingPackagingOrderId = null;
   }
 }
