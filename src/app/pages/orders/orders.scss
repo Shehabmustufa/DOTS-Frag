@@ -25,6 +25,7 @@
 }
 
 .stat-success { background: linear-gradient(135deg, #4caf50, #388e3c); }
+.stat-collected { background: linear-gradient(135deg, #ff9800, #f57c00); }
 .stat-info { background: linear-gradient(135deg, #2196f3, #1565c0); }
 
 .filter-row {
@@ -199,4 +200,66 @@
   border-radius: 8px;
   padding: 12px 16px;
   border: 1px solid #e9ecef;
+}
+
+.collected-toggle {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+
+  &.collected-yes {
+    background: #4caf50;
+    color: white;
+    border-color: #4caf50;
+
+    &:hover { background: #388e3c; border-color: #388e3c; }
+  }
+
+  &.collected-no {
+    background: transparent;
+    color: #999;
+    border: 1px solid #ddd;
+
+    &:hover { background: #f5f5f5; color: #666; }
+  }
+}
+
+.order-packaging-detail {
+  ul {
+    list-style: none;
+    padding: 0;
+
+    li {
+      padding: 6px 12px;
+      background: white;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      border: 1px solid #e9ecef;
+      font-size: 14px;
+    }
+  }
+}
+
+.packaging-edit-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+
+  .packaging-name {
+    flex: 2;
+    font-weight: 500;
+  }
+
+  .packaging-type {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  .packaging-avail {
+    flex: 1;
+    font-size: 12px;
+  }
 }

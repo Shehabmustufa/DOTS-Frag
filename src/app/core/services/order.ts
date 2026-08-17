@@ -16,25 +16,37 @@ export interface OrderItem {
   brand?: { name: string; company: { name: string } };
 }
 
+export interface OrderPackaging {
+  id?: number;
+  order_id?: number;
+  packaging_item_id: number;
+  quantity: number;
+  packaging_item?: { id: number; name: string; type: string; remaining_count: number; max_count: number };
+}
+
 export interface Order {
   id?: number;
   customer_id: number;
   order_status: 'placed' | 'delivery' | 'delivered' | 'cancelled';
   discount_percentage?: number;
   is_gift?: boolean;
+  is_money_collected?: boolean;
   created_at?: string;
   customer?: { name: string; mobile_number: string };
   order_items?: OrderItem[];
+  order_packaging?: OrderPackaging[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class OrderService {
   constructor(private supa: SupabaseService) {}
 
+  private readonly selectQuery = `*, customer:customers(name, mobile_number), order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name))), order_packaging(*, packaging_item:packaging_items(id, name, type, remaining_count, max_count))`;
+
   async getAll(): Promise<Order[]> {
     const { data, error } = await this.supa.client
       .from('orders')
-      .select(`*, customer:customers(name, mobile_number), order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name)))`)
+      .select(this.selectQuery)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data as Order[];
@@ -43,7 +55,7 @@ export class OrderService {
   async getByCustomer(customerId: number): Promise<Order[]> {
     const { data, error } = await this.supa.client
       .from('orders')
-      .select(`*, order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name)))`)
+      .select(`*, order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name))), order_packaging(*, packaging_item:packaging_items(id, name, type, remaining_count, max_count))`)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -87,6 +99,12 @@ export class OrderService {
   async updateStatus(id: number, status: Order['order_status']): Promise<void> {
     const { error } = await this.supa.client
       .from('orders').update({ order_status: status }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async toggleMoneyCollected(id: number, value: boolean): Promise<void> {
+    const { error } = await this.supa.client
+      .from('orders').update({ is_money_collected: value }).eq('id', id);
     if (error) throw error;
   }
 

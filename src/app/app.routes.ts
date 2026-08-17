@@ -6,6 +6,7 @@ import { Customers } from './pages/customers/customers';
 import { Costs } from './pages/costs/costs';
 import { Brands } from './pages/brands/brands';
 import { Decants } from './pages/decants/decants';
+import { Packaging } from './pages/packaging/packaging';
 import { Login } from './pages/login/login';
 import { authGuard } from './core/guards/auth.guard';
 
@@ -18,6 +19,7 @@ export const routes: Routes = [
     children: [
       { path: 'perfumes', component: Perfumes },
       { path: 'decants', component: Decants },
+      { path: 'packaging', component: Packaging },
       { path: 'orders', component: Orders },
       { path: 'customers', component: Customers },
       { path: 'costs', component: Costs },
