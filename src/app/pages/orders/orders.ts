@@ -80,6 +80,13 @@ export class Orders implements OnInit {
     this.applyFiltersAndGrouping();
   }
 
+  private _filterCollected: '' | 'yes' | 'no' = '';
+  get filterCollected() { return this._filterCollected; }
+  set filterCollected(val: '' | 'yes' | 'no') {
+    this._filterCollected = val;
+    this.applyFiltersAndGrouping();
+  }
+
   pageSize = 10;
   showModal = false;
   selectedCustomerId: number | null = null;
@@ -163,6 +170,12 @@ export class Orders implements OnInit {
       result = result.filter(o => o.order_status === this._filterStatus);
     }
 
+    if (this._filterCollected === 'yes') {
+      result = result.filter(o => o.is_money_collected);
+    } else if (this._filterCollected === 'no') {
+      result = result.filter(o => !o.is_money_collected);
+    }
+
     if (this._filterFrom) {
       const from = new Date(this._filterFrom);
       from.setHours(0, 0, 0, 0);
@@ -189,6 +202,7 @@ export class Orders implements OnInit {
       map.get(key)!.push(o);
     }
 
+    const oldPages = new Map(this.dayGroups.map(g => [g.date, g.page]));
     const groups: DayGroup[] = [];
     for (const [date, orders] of map) {
       const d = new Date(date + 'T00:00:00');
@@ -196,7 +210,7 @@ export class Orders implements OnInit {
       groups.push({
         date, label, orders,
         revenue: orders.reduce((s, o) => s + this.orderTotal(o), 0),
-        page: 1,
+        page: oldPages.get(date) || 1,
       });
     }
     groups.sort((a, b) => b.date.localeCompare(a.date));
@@ -208,6 +222,7 @@ export class Orders implements OnInit {
     this._filterTo = '';
     this._filterOwner = '';
     this._filterStatus = '';
+    this._filterCollected = '';
     this.applyFiltersAndGrouping();
   }
 
@@ -412,7 +427,9 @@ export class Orders implements OnInit {
       const newValue = !o.is_money_collected;
       await this.svc.toggleMoneyCollected(o.id!, newValue);
       o.is_money_collected = newValue;
-      this.applyFiltersAndGrouping();
+      this.totalCollected = this.filteredOrders
+        .filter(x => x.is_money_collected && x.order_status !== 'cancelled')
+        .reduce((s, x) => s + this.orderTotal(x), 0);
       this.cdr.markForCheck();
     } catch (e: any) {
       this.error = e.message;
@@ -495,7 +512,8 @@ export class Orders implements OnInit {
 
   async updateStatus(o: Order, newStatus: Order['order_status']) {
     if (o.order_status === 'cancelled') return;
-    if ((newStatus === 'delivery' || newStatus === 'delivered') && (!o.order_packaging || o.order_packaging.length === 0)) {
+    if (o.order_status === 'placed' && (newStatus === 'delivery' || newStatus === 'delivered')
+        && (!o.order_packaging || o.order_packaging.length === 0)) {
       this.error = 'Packaging must be assigned before moving to delivery/delivered.';
       await this.load();
       this.cdr.markForCheck();
