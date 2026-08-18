@@ -43,6 +43,14 @@
       </select>
     </div>
     <div class="filter-group">
+      <label class="form-label mb-0">Collected</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filterCollected">
+        <option value="">All</option>
+        <option value="yes">Collected</option>
+        <option value="no">Not Collected</option>
+      </select>
+    </div>
+    <div class="filter-group">
       <label class="form-label mb-0">From</label>
       <input type="date" class="form-control form-control-sm" [(ngModel)]="filterFrom">
     </div>
@@ -50,7 +58,7 @@
       <label class="form-label mb-0">To</label>
       <input type="date" class="form-control form-control-sm" [(ngModel)]="filterTo">
     </div>
-    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo || filterOwner || filterStatus">Clear</button>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo || filterOwner || filterStatus || filterCollected">Clear</button>
   </div>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
