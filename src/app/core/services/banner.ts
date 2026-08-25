@@ -1,0 +1,83 @@
+import { Injectable } from '@angular/core';
+import { SupabaseService } from './supabase';
+
+export interface Banner {
+  id?: number;
+  image_path: string;
+  title?: string | null;
+  subtitle?: string | null;
+  button_text?: string | null;
+  button_link?: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class BannerService {
+  constructor(private supa: SupabaseService) {}
+
+  async getAll(): Promise<Banner[]> {
+    const { data, error } = await this.supa.client
+      .from('homepage_banners')
+      .select('*')
+      .order('display_order', { ascending: true });
+    if (error) throw error;
+    return (data as Banner[]) || [];
+  }
+
+  async create(banner: Partial<Banner>): Promise<void> {
+    const payload = {
+      image_path: banner.image_path!,
+      title: banner.title || null,
+      subtitle: banner.subtitle || null,
+      button_text: banner.button_text || null,
+      button_link: banner.button_link || null,
+      display_order: banner.display_order || 0,
+      is_active: banner.is_active ?? true,
+    };
+    const { error } = await this.supa.client.from('homepage_banners').insert([payload]);
+    if (error) throw error;
+  }
+
+  async update(id: number, banner: Partial<Banner>): Promise<void> {
+    const payload: any = { updated_at: new Date().toISOString() };
+    if (banner.image_path !== undefined) payload.image_path = banner.image_path;
+    if (banner.title !== undefined) payload.title = banner.title || null;
+    if (banner.subtitle !== undefined) payload.subtitle = banner.subtitle || null;
+    if (banner.button_text !== undefined) payload.button_text = banner.button_text || null;
+    if (banner.button_link !== undefined) payload.button_link = banner.button_link || null;
+    if (banner.display_order !== undefined) payload.display_order = banner.display_order;
+    if (banner.is_active !== undefined) payload.is_active = banner.is_active;
+
+    const { error } = await this.supa.client.from('homepage_banners').update(payload).eq('id', id);
+    if (error) throw error;
+  }
+
+  async delete(id: number): Promise<void> {
+    const { error } = await this.supa.client.from('homepage_banners').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async uploadImage(file: File): Promise<string> {
+    const timestamp = Date.now();
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `banners/${timestamp}.${ext}`;
+
+    const { error } = await this.supa.client.storage
+      .from('website')
+      .upload(path, file, { contentType: file.type });
+    if (error) throw error;
+    return path;
+  }
+
+  async deleteImage(path: string): Promise<void> {
+    await this.supa.client.storage.from('website').remove([path]);
+  }
+
+  getPublicUrl(path: string): string {
+    const { data } = this.supa.client.storage.from('website').getPublicUrl(path);
+    return data.publicUrl;
+  }
+}

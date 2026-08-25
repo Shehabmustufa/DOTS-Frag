@@ -7,6 +7,7 @@ import { Costs } from './pages/costs/costs';
 import { Brands } from './pages/brands/brands';
 import { Decants } from './pages/decants/decants';
 import { Packaging } from './pages/packaging/packaging';
+import { Website } from './pages/website/website';
 import { Login } from './pages/login/login';
 import { authGuard } from './core/guards/auth.guard';
 
@@ -24,6 +25,7 @@ export const routes: Routes = [
       { path: 'customers', component: Customers },
       { path: 'costs', component: Costs },
       { path: 'brands', component: Brands },
+      { path: 'website', component: Website },
       { path: '', redirectTo: 'perfumes', pathMatch: 'full' },
     ]
   }

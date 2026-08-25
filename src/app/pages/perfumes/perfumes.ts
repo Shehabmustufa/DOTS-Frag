@@ -44,7 +44,11 @@ export class Perfumes implements OnInit {
     brand_id: undefined, full_ml: 0, current_ml: 0,
     bought_from: '', price_original: 0,
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
+    description: '', notes: '', gender: 'unisex',
+    is_published: false,
   };
+  imagePreview: string | null = null;
+  imageFile: File | null = null;
 
   constructor(
     private svc: PerfumeService,
@@ -188,10 +192,14 @@ export class Perfumes implements OnInit {
     this.editId = null;
     this.selectedCompanyId = null;
     this.costPrice = 0;
+    this.imagePreview = null;
+    this.imageFile = null;
     this.form = {
       brand_id: undefined, full_ml: 0, current_ml: 0,
       bought_from: '', price_original: 0,
       price_5ml: 0, price_10ml: 0, price_30ml: 0,
+      description: '', notes: '', gender: 'unisex',
+      is_published: false,
     };
     this.showModal = true;
   }
@@ -201,24 +209,46 @@ export class Perfumes implements OnInit {
     this.editId = p.id!;
     const brand = this.brands.find(b => b.id === p.brand_id);
     this.selectedCompanyId = brand?.company_id || null;
+    this.imageFile = null;
+    this.imagePreview = p.image_path ? this.svc.getImageUrl(p.image_path) : null;
     this.form = {
       brand_id: p.brand_id, full_ml: p.full_ml, current_ml: p.current_ml,
       bought_from: p.bought_from, price_original: p.price_original,
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
+      description: p.description || '', notes: p.notes || '',
+      gender: p.gender || 'unisex', is_published: p.is_published || false,
     };
     this.showModal = true;
+  }
+
+  onImageSelect(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.imageFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.imagePreview = reader.result as string;
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(file);
   }
 
   async save() {
     this.error = '';
     try {
       if (this.isEdit && this.editId) {
+        if (this.imageFile) {
+          const path = await this.svc.uploadImage(this.imageFile, this.editId);
+          this.form.image_path = path;
+        }
         await this.svc.update(this.editId, this.form);
       } else {
         const brand = this.brands.find(b => b.id === Number(this.form.brand_id));
         await this.svc.addBottle(this.form, this.costPrice, brand?.name || 'Unknown');
       }
       this.showModal = false;
+      this.imageFile = null;
+      this.imagePreview = null;
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Save failed';

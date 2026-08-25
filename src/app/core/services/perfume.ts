@@ -15,6 +15,11 @@ export interface Perfume {
   bottles_available: number;
   bottles_bought: number;
   perfume_status?: 'available' | 'low' | 'empty';
+  description?: string;
+  notes?: string;
+  gender?: 'men' | 'women' | 'unisex';
+  image_path?: string;
+  is_published?: boolean;
   created_at?: string;
 }
 
@@ -79,6 +84,11 @@ export class PerfumeService {
     if (p.bottles_available !== undefined) payload.bottles_available = Number(p.bottles_available);
     if (p.bottles_bought !== undefined) payload.bottles_bought = Number(p.bottles_bought);
     if (p.perfume_status !== undefined) payload.perfume_status = p.perfume_status;
+    if (p.description !== undefined) payload.description = p.description;
+    if (p.notes !== undefined) payload.notes = p.notes;
+    if (p.gender !== undefined) payload.gender = p.gender;
+    if (p.image_path !== undefined) payload.image_path = p.image_path || null;
+    if (p.is_published !== undefined) payload.is_published = p.is_published;
 
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
     if (error) throw error;
@@ -87,6 +97,52 @@ export class PerfumeService {
   async deleteFull(id: number): Promise<void> {
     const { error } = await this.supa.client.rpc('delete_perfume_full', { p_perfume_id: id });
     if (error) throw error;
+  }
+
+  async uploadImage(file: File, perfumeId: number): Promise<string> {
+    const compressed = await this.compressImage(file, 800, 0.85);
+    const path = `products/${perfumeId}.webp`;
+    const { error } = await this.supa.client.storage
+      .from('website')
+      .upload(path, compressed, { upsert: true, contentType: 'image/webp' });
+    if (error) throw error;
+    return path;
+  }
+
+  private compressImage(file: File, maxSize: number, quality: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          const ratio = Math.min(maxSize / w, maxSize / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error('Compression failed')),
+          'image/webp',
+          quality,
+        );
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async deleteImage(path: string): Promise<void> {
+    const { error } = await this.supa.client.storage
+      .from('website')
+      .remove([path]);
+    if (error) throw error;
+  }
+
+  getImageUrl(path: string): string {
+    return this.supa.client.storage.from('website').getPublicUrl(path).data.publicUrl;
   }
 
   // --- Bottle methods ---
