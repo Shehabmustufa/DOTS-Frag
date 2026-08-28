@@ -15,6 +15,13 @@ export interface Perfume {
   bottles_available: number;
   bottles_bought: number;
   perfume_status?: 'available' | 'low' | 'empty';
+  description?: string;
+  notes?: string;
+  gender?: 'men' | 'women' | 'unisex';
+  is_published?: boolean;
+  sale_price_5ml?: number | null;
+  sale_price_10ml?: number | null;
+  sale_price_30ml?: number | null;
   created_at?: string;
 }
 
@@ -79,6 +86,13 @@ export class PerfumeService {
     if (p.bottles_available !== undefined) payload.bottles_available = Number(p.bottles_available);
     if (p.bottles_bought !== undefined) payload.bottles_bought = Number(p.bottles_bought);
     if (p.perfume_status !== undefined) payload.perfume_status = p.perfume_status;
+    if (p.description !== undefined) payload.description = p.description;
+    if (p.notes !== undefined) payload.notes = p.notes;
+    if (p.gender !== undefined) payload.gender = p.gender;
+    if (p.is_published !== undefined) payload.is_published = p.is_published;
+    if (p.sale_price_5ml !== undefined) payload.sale_price_5ml = p.sale_price_5ml === null || (p.sale_price_5ml as any) === '' ? null : Number(p.sale_price_5ml);
+    if (p.sale_price_10ml !== undefined) payload.sale_price_10ml = p.sale_price_10ml === null || (p.sale_price_10ml as any) === '' ? null : Number(p.sale_price_10ml);
+    if (p.sale_price_30ml !== undefined) payload.sale_price_30ml = p.sale_price_30ml === null || (p.sale_price_30ml as any) === '' ? null : Number(p.sale_price_30ml);
 
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
     if (error) throw error;

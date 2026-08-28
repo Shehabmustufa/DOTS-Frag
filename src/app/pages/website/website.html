@@ -1,0 +1,288 @@
+<div class="page-container">
+  <div class="page-header">
+    <h2>Website Management</h2>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab" [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">General</button>
+    <button class="tab" [class.active]="activeTab === 'banners'" (click)="activeTab = 'banners'">Banners</button>
+    <button class="tab" [class.active]="activeTab === 'menus'" (click)="activeTab = 'menus'">Menu Visuals</button>
+  </div>
+
+  @if (loading) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+  }
+
+  <!-- General Tab -->
+  @if (!loading && activeTab === 'general' && settings) {
+    <div class="tab-content">
+      <div class="settings-section">
+        <h3>Logo</h3>
+        <div class="logo-upload">
+          <div class="logo-preview logo-preview--framed"
+               [class.shape-square]="settings.logo_shape === 'square'"
+               [class.shape-rectangle]="settings.logo_shape === 'rectangle'"
+               [style.--preview-size]="(settings.logo_size || 56) + 'px'">
+            @if (logoPreview) {
+              <img [src]="logoPreview" alt="Logo">
+            } @else {
+              <div class="logo-placeholder">No logo</div>
+            }
+          </div>
+          <div class="logo-actions">
+            <label class="btn btn-sm btn-outline-primary">
+              Choose File
+              <input type="file" accept="image/*" (change)="onLogoFileSelected($event)" hidden>
+            </label>
+
+            <div class="form-group mt-3">
+              <label>Shape</label>
+              <select class="form-select form-select-sm" [(ngModel)]="settings.logo_shape">
+                <option value="circle">Circle</option>
+                <option value="square">Square (soft corners)</option>
+                <option value="rectangle">Rectangle (keep image aspect ratio)</option>
+              </select>
+            </div>
+
+            <div class="form-group mt-2">
+              <label>Size — {{ settings.logo_size || 56 }}px</label>
+              <input type="range" min="20" max="80" step="2" class="w-100"
+                     [(ngModel)]="settings.logo_size">
+              <small>The website keeps the logo inside the header bar at every screen size — the announcement bar and menus don't move.</small>
+            </div>
+
+            <small>Recommended image: 200×200px for circle/square, any ratio for rectangle. PNG or WebP.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Contact</h3>
+        <div class="form-group">
+          <label>WhatsApp Number</label>
+          <input type="text" class="form-control" [(ngModel)]="settings.whatsapp_number"
+                 placeholder="e.g. 201012345678 (country code, no + or spaces)">
+          <small>Digits only, with country code. Used by the floating WhatsApp button, footer, contact page, and order confirmations. Leave blank to hide WhatsApp links.</small>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Announcement Bar</h3>
+        <div class="form-group">
+          <label>Text</label>
+          <input type="text" class="form-control" [(ngModel)]="settings.announcement_text" placeholder="e.g., Free delivery on orders above 500 EGP">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Background Color</label>
+            <div class="color-input">
+              <input type="color" [(ngModel)]="settings.announcement_bg_color">
+              <input type="text" class="form-control" [(ngModel)]="settings.announcement_bg_color">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Text Color</label>
+            <div class="color-input">
+              <input type="color" [(ngModel)]="settings.announcement_text_color">
+              <input type="text" class="form-control" [(ngModel)]="settings.announcement_text_color">
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="settings.announcement_enabled">
+            <span>Announcement Enabled</span>
+          </label>
+        </div>
+
+        <!-- Preview -->
+        @if (settings.announcement_text) {
+          <div class="announcement-preview"
+               [style.background-color]="settings.announcement_bg_color"
+               [style.color]="settings.announcement_text_color">
+            {{ settings.announcement_text }}
+          </div>
+        }
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" (click)="saveGeneral()" [disabled]="saving">
+          {{ saving ? 'Saving...' : 'Save Settings' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Banners Tab -->
+  @if (!loading && activeTab === 'banners') {
+    <div class="tab-content">
+      <div class="banner-header">
+        <p>Manage homepage banners. Drag order numbers to reorder.</p>
+        <button class="btn btn-primary btn-sm" (click)="openAddBanner()">+ Add Banner</button>
+      </div>
+
+      @if (banners.length === 0) {
+        <div class="empty-state">
+          <p>No banners yet. Add your first banner!</p>
+        </div>
+      }
+
+      <div class="banner-list">
+        @for (banner of banners; track banner.id) {
+          <div class="banner-card" [class.inactive]="!banner.is_active">
+            <div class="banner-thumb">
+              @if (banner.id && bannerUrls.get(banner.id)) {
+                <img [src]="bannerUrls.get(banner.id)" alt="Banner">
+              }
+            </div>
+            <div class="banner-info">
+              <div class="banner-meta">
+                <span class="banner-order">#{{ banner.display_order }}</span>
+                <span class="banner-status" [class.active]="banner.is_active">
+                  {{ banner.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+              @if (banner.title) {
+                <strong>{{ banner.title }}</strong>
+              }
+              @if (banner.subtitle) {
+                <small>{{ banner.subtitle }}</small>
+              }
+            </div>
+            <div class="banner-actions">
+              <button class="btn btn-sm btn-outline-secondary" (click)="toggleBannerActive(banner)">
+                {{ banner.is_active ? 'Disable' : 'Enable' }}
+              </button>
+              <button class="btn btn-sm btn-outline-primary" (click)="openEditBanner(banner)">Edit</button>
+              <button class="btn btn-sm btn-outline-danger" (click)="deleteBanner(banner)">Delete</button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Menu Visuals Tab -->
+  @if (!loading && activeTab === 'menus') {
+    <div class="tab-content">
+      <p class="menus-intro">
+        Background images for the header dropdown menus on the website. Each image sits behind
+        the menu with a dark overlay so the text stays readable. Leave a slot empty to use the
+        plain default. Changes are saved immediately.
+      </p>
+
+      @for (group of menuGroups; track group.label) {
+        <div class="settings-section">
+          <h3>{{ group.label }}</h3>
+          <div class="visual-grid">
+            @for (s of group.slots; track s.slot) {
+              <div class="visual-card" [class.busy]="visualBusy === s.slot">
+                <div class="visual-thumb">
+                  @if (visualUrls.get(s.slot)) {
+                    <img [src]="visualUrls.get(s.slot)" [alt]="s.label">
+                  } @else {
+                    <div class="visual-thumb-empty">No image</div>
+                  }
+                </div>
+                <div class="visual-body">
+                  <strong>{{ s.label }}</strong>
+                  <small>{{ s.hint }}</small>
+
+                  <div class="visual-actions">
+                    <label class="btn btn-sm btn-outline-primary">
+                      {{ visualUrls.get(s.slot) ? 'Replace' : 'Upload' }}
+                      <input type="file" accept="image/*" hidden
+                             (change)="onVisualFileSelected(s.slot, $event)">
+                    </label>
+                    @if (visualUrls.get(s.slot)) {
+                      <button class="btn btn-sm btn-outline-danger" (click)="clearVisualImage(s.slot)">Remove</button>
+                    }
+                  </div>
+
+                  <label class="visual-range">
+                    <span>Overlay {{ (visual(s.slot).overlay_opacity * 100) | number:'1.0-0' }}%</span>
+                    <input type="range" min="0" max="0.85" step="0.05"
+                           [(ngModel)]="visual(s.slot).overlay_opacity"
+                           (change)="saveVisualOverlay(s.slot)">
+                  </label>
+
+                  <label class="toggle-label">
+                    <input type="checkbox" [checked]="visual(s.slot).is_enabled"
+                           (change)="toggleVisualEnabled(s.slot)">
+                    <span>Show on website</span>
+                  </label>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Banner Modal -->
+@if (showBannerModal) {
+  <div class="modal-backdrop-custom" (click)="closeBannerModal()"></div>
+  <div class="modal-panel modal-panel-lg">
+    <div class="modal-panel-header">
+      <h5>{{ editingBanner ? 'Edit Banner' : 'Add Banner' }}</h5>
+      <button class="btn-close" (click)="closeBannerModal()">&times;</button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="form-group">
+        <label>Banner Image</label>
+        <label class="btn btn-sm btn-outline-primary">
+          {{ bannerFile ? 'Change Image' : 'Choose Image' }}
+          <input type="file" accept="image/*" (change)="onBannerFileSelected($event)" hidden>
+        </label>
+        @if (bannerFilePreview) {
+          <div class="banner-preview-img">
+            <img [src]="bannerFilePreview" alt="Banner preview">
+          </div>
+        }
+        <small>Recommended: 1920x600px, JPG or WebP</small>
+      </div>
+      <div class="form-group">
+        <label>Title (optional)</label>
+        <input type="text" class="form-control" [(ngModel)]="bannerForm.title" placeholder="Banner headline">
+      </div>
+      <div class="form-group">
+        <label>Subtitle (optional)</label>
+        <input type="text" class="form-control" [(ngModel)]="bannerForm.subtitle" placeholder="Short description">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Button Text (optional)</label>
+          <input type="text" class="form-control" [(ngModel)]="bannerForm.button_text" placeholder="e.g., Shop Now">
+        </div>
+        <div class="form-group">
+          <label>Button Link (optional)</label>
+          <input type="text" class="form-control" [(ngModel)]="bannerForm.button_link" placeholder="e.g., /shop">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Display Order</label>
+          <input type="number" class="form-control" [(ngModel)]="bannerForm.display_order" min="0">
+        </div>
+        <div class="form-group">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="bannerForm.is_active">
+            <span>Active</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary" (click)="closeBannerModal()">Cancel</button>
+      <button class="btn btn-primary" (click)="saveBanner()" [disabled]="saving">
+        {{ saving ? 'Saving...' : (editingBanner ? 'Update' : 'Create') }}
+      </button>
+    </div>
+  </div>
+}

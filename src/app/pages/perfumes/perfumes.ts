@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PerfumeService, Perfume, PerfumeBottle } from '../../core/services/perfume';
-import { BrandService, Brand } from '../../core/services/brand';
+import { BrandService, Brand, BrandImage, MAX_BRAND_IMAGES } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
 
 @Component({
@@ -44,7 +44,17 @@ export class Perfumes implements OnInit {
     brand_id: undefined, full_ml: 0, current_ml: 0,
     bought_from: '', price_original: 0,
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
+    description: '', notes: '', gender: 'unisex',
+    is_published: false,
+    sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
   };
+
+  // --- Brand-level full-bottle catalog (shared with the Brands panel) ---
+  brandForm: Partial<Brand> = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
+  brandImages: BrandImage[] = [];
+  brandImagesLoading = false;
+  uploadingImage = false;
+  readonly maxBrandImages = MAX_BRAND_IMAGES;
 
   constructor(
     private svc: PerfumeService,
@@ -188,15 +198,20 @@ export class Perfumes implements OnInit {
     this.editId = null;
     this.selectedCompanyId = null;
     this.costPrice = 0;
+    this.brandImages = [];
+    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
     this.form = {
       brand_id: undefined, full_ml: 0, current_ml: 0,
       bought_from: '', price_original: 0,
       price_5ml: 0, price_10ml: 0, price_30ml: 0,
+      description: '', notes: '', gender: 'unisex',
+      is_published: false,
+      sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
     };
     this.showModal = true;
   }
 
-  openEdit(p: Perfume) {
+  async openEdit(p: Perfume) {
     this.isEdit = true;
     this.editId = p.id!;
     const brand = this.brands.find(b => b.id === p.brand_id);
@@ -205,8 +220,80 @@ export class Perfumes implements OnInit {
       brand_id: p.brand_id, full_ml: p.full_ml, current_ml: p.current_ml,
       bought_from: p.bought_from, price_original: p.price_original,
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
+      description: p.description || '', notes: p.notes || '',
+      gender: p.gender || 'unisex', is_published: p.is_published || false,
+      sale_price_5ml: p.sale_price_5ml ?? null, sale_price_10ml: p.sale_price_10ml ?? null, sale_price_30ml: p.sale_price_30ml ?? null,
+    };
+    this.brandForm = {
+      cost_price: brand?.cost_price ?? null,
+      full_bottle_price: brand?.full_bottle_price ?? null,
+      full_bottle_sale_price: brand?.full_bottle_sale_price ?? null,
+      gender: brand?.gender || 'unisex',
     };
     this.showModal = true;
+    await this.loadBrandImages(p.brand_id);
+  }
+
+  private async loadBrandImages(brandId: number) {
+    this.brandImagesLoading = true;
+    this.cdr.markForCheck();
+    try {
+      this.brandImages = await this.brandSvc.getImages(brandId);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to load images';
+    } finally {
+      this.brandImagesLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  getBrandImageUrl(img: BrandImage): string {
+    return this.brandSvc.getImageUrl(img.image_path);
+  }
+
+  async onBrandImageSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.editId) return;
+    const brand = this.brands.find(b => b.id === this.form.brand_id);
+    if (!brand?.id) return;
+    this.uploadingImage = true;
+    this.error = '';
+    this.cdr.markForCheck();
+    try {
+      const img = await this.brandSvc.uploadImage(file, brand.id, this.brandImages.length);
+      this.brandImages.push(img);
+    } catch (e: any) {
+      this.error = e?.message || 'Image upload failed';
+    } finally {
+      this.uploadingImage = false;
+      input.value = '';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async removeBrandImage(img: BrandImage) {
+    if (!confirm('Remove this image?')) return;
+    try {
+      await this.brandSvc.deleteImage(img);
+      this.brandImages = this.brandImages.filter(i => i.id !== img.id);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to remove image';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async moveBrandImage(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= this.brandImages.length) return;
+    [this.brandImages[index], this.brandImages[target]] = [this.brandImages[target], this.brandImages[index]];
+    this.cdr.markForCheck();
+    try {
+      await this.brandSvc.reorderImages(this.brandImages);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to reorder images';
+      this.cdr.markForCheck();
+    }
   }
 
   async save() {
@@ -214,11 +301,24 @@ export class Perfumes implements OnInit {
     try {
       if (this.isEdit && this.editId) {
         await this.svc.update(this.editId, this.form);
+        if (this.form.brand_id) {
+          await this.brandSvc.update(Number(this.form.brand_id), this.brandForm);
+        }
       } else {
         const brand = this.brands.find(b => b.id === Number(this.form.brand_id));
         await this.svc.addBottle(this.form, this.costPrice, brand?.name || 'Unknown');
+        // The cost and full-bottle sale price entered here also become the brand's
+        // full-bottle catalog values, so they never have to be typed in again on
+        // the Brands panel.
+        if (brand?.id && (this.costPrice || this.form.price_original)) {
+          await this.brandSvc.update(brand.id, {
+            cost_price: this.costPrice || undefined,
+            full_bottle_price: this.form.price_original || undefined,
+          });
+        }
       }
       this.showModal = false;
+      this.brandImages = [];
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Save failed';
@@ -254,6 +354,9 @@ export class Perfumes implements OnInit {
           : value;
         await this.svc.update(p.id!, updates);
         Object.assign(p, updates);
+        if (field === 'price_original' && p.brand_id) {
+          await this.brandSvc.update(p.brand_id, { full_bottle_price: Number(value) });
+        }
       }
       this.editingRowId = null;
     } catch (e: any) {
