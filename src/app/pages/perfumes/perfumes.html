@@ -195,7 +195,7 @@
           <h6 class="text-muted mb-3">🌐 Website Details</h6>
         </div>
         <div class="col-4" *ngIf="isEdit">
-          <label class="form-label">Gender</label>
+          <label class="form-label">Gender (decant listing)</label>
           <select class="form-select" [(ngModel)]="form.gender">
             <option value="men">Men</option>
             <option value="women">Women</option>
@@ -209,11 +209,6 @@
             <label class="form-check-label" for="publishedCheck">Show on website</label>
           </div>
         </div>
-        <div class="col-4" *ngIf="isEdit">
-          <label class="form-label">Product Image</label>
-          <input type="file" class="form-control" accept="image/*" (change)="onImageSelect($event)">
-          <img *ngIf="imagePreview" [src]="imagePreview" class="img-thumbnail mt-2" style="max-height:80px;">
-        </div>
         <div class="col-12" *ngIf="isEdit">
           <label class="form-label">Description</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.description" placeholder="Short product description for the website"></textarea>
@@ -221,6 +216,65 @@
         <div class="col-12" *ngIf="isEdit">
           <label class="form-label">Fragrance Notes</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.notes" placeholder="e.g. Top: Bergamot, Lemon | Middle: Rose, Jasmine | Base: Musk, Amber"></textarea>
+        </div>
+
+        <!-- Decant sale prices -->
+        <div class="col-12" *ngIf="isEdit">
+          <label class="form-label mb-1">Decant Sale Prices <span class="text-muted" style="font-weight:normal;">(optional — leave blank for no discount)</span></label>
+        </div>
+        <div class="col-4" *ngIf="isEdit">
+          <input type="number" class="form-control" [(ngModel)]="form.sale_price_5ml" placeholder="Sale price 5ml">
+        </div>
+        <div class="col-4" *ngIf="isEdit">
+          <input type="number" class="form-control" [(ngModel)]="form.sale_price_10ml" placeholder="Sale price 10ml">
+        </div>
+        <div class="col-4" *ngIf="isEdit">
+          <input type="number" class="form-control" [(ngModel)]="form.sale_price_30ml" placeholder="Sale price 35ml">
+        </div>
+
+        <!-- Brand-level full bottle catalog (shared with Brands panel) -->
+        <div class="col-12" *ngIf="isEdit">
+          <hr class="my-2">
+          <h6 class="text-muted mb-1">🏷️ Full Bottle Catalog</h6>
+          <p class="text-muted" style="font-size:12px; margin-top:-4px;">Shared with the Brands panel. Cost price and full bottle price are filled in automatically from what you entered above when the bottle was added — only the optional discount sale price needs to be set here. A full bottle only shows on the website once cost price, full bottle price, and at least one image are all set.</p>
+        </div>
+        <div class="col-3" *ngIf="isEdit">
+          <label class="form-label">Cost Price (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="brandForm.cost_price" placeholder="Auto-filled from bottle cost">
+        </div>
+        <div class="col-3" *ngIf="isEdit">
+          <label class="form-label">Full Bottle Price (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="brandForm.full_bottle_price" placeholder="Auto-filled from above">
+        </div>
+        <div class="col-3" *ngIf="isEdit">
+          <label class="form-label">Sale Price (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="brandForm.full_bottle_sale_price" placeholder="Optional discount price">
+        </div>
+        <div class="col-3" *ngIf="isEdit">
+          <label class="form-label">Gender (full bottle)</label>
+          <select class="form-select" [(ngModel)]="brandForm.gender">
+            <option value="men">Men</option>
+            <option value="women">Women</option>
+            <option value="unisex">Unisex</option>
+          </select>
+        </div>
+
+        <div class="col-12" *ngIf="isEdit">
+          <label class="form-label">Product Images <span class="text-muted" style="font-weight:normal;">({{ brandImages.length }}/{{ maxBrandImages }})</span></label>
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <div *ngFor="let img of brandImages; let i = index" style="position:relative; width:80px;">
+              <img [src]="getBrandImageUrl(img)" class="img-thumbnail" style="width:80px; height:80px; object-fit:cover;">
+              <div class="d-flex justify-content-between mt-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" [disabled]="i === 0" (click)="moveBrandImage(i, -1)">◀</button>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" (click)="removeBrandImage(img)">🗑</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" [disabled]="i === brandImages.length - 1" (click)="moveBrandImage(i, 1)">▶</button>
+              </div>
+            </div>
+            <div *ngIf="brandImagesLoading" class="text-muted align-self-center">Loading images...</div>
+          </div>
+          <input type="file" class="form-control" accept="image/*" [disabled]="uploadingImage || brandImages.length >= maxBrandImages" (change)="onBrandImageSelect($event)">
+          <small class="text-muted" *ngIf="uploadingImage">Uploading...</small>
+          <small class="text-muted" *ngIf="brandImages.length >= maxBrandImages">Maximum {{ maxBrandImages }} images reached.</small>
         </div>
       </div>
     </div>

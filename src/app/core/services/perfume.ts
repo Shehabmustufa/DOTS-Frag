@@ -18,8 +18,10 @@ export interface Perfume {
   description?: string;
   notes?: string;
   gender?: 'men' | 'women' | 'unisex';
-  image_path?: string;
   is_published?: boolean;
+  sale_price_5ml?: number | null;
+  sale_price_10ml?: number | null;
+  sale_price_30ml?: number | null;
   created_at?: string;
 }
 
@@ -87,8 +89,10 @@ export class PerfumeService {
     if (p.description !== undefined) payload.description = p.description;
     if (p.notes !== undefined) payload.notes = p.notes;
     if (p.gender !== undefined) payload.gender = p.gender;
-    if (p.image_path !== undefined) payload.image_path = p.image_path || null;
     if (p.is_published !== undefined) payload.is_published = p.is_published;
+    if (p.sale_price_5ml !== undefined) payload.sale_price_5ml = p.sale_price_5ml === null || (p.sale_price_5ml as any) === '' ? null : Number(p.sale_price_5ml);
+    if (p.sale_price_10ml !== undefined) payload.sale_price_10ml = p.sale_price_10ml === null || (p.sale_price_10ml as any) === '' ? null : Number(p.sale_price_10ml);
+    if (p.sale_price_30ml !== undefined) payload.sale_price_30ml = p.sale_price_30ml === null || (p.sale_price_30ml as any) === '' ? null : Number(p.sale_price_30ml);
 
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
     if (error) throw error;
@@ -97,52 +101,6 @@ export class PerfumeService {
   async deleteFull(id: number): Promise<void> {
     const { error } = await this.supa.client.rpc('delete_perfume_full', { p_perfume_id: id });
     if (error) throw error;
-  }
-
-  async uploadImage(file: File, perfumeId: number): Promise<string> {
-    const compressed = await this.compressImage(file, 800, 0.85);
-    const path = `products/${perfumeId}.webp`;
-    const { error } = await this.supa.client.storage
-      .from('website')
-      .upload(path, compressed, { upsert: true, contentType: 'image/webp' });
-    if (error) throw error;
-    return path;
-  }
-
-  private compressImage(file: File, maxSize: number, quality: number): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        if (w > maxSize || h > maxSize) {
-          const ratio = Math.min(maxSize / w, maxSize / h);
-          w = Math.round(w * ratio);
-          h = Math.round(h * ratio);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error('Compression failed')),
-          'image/webp',
-          quality,
-        );
-      };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  async deleteImage(path: string): Promise<void> {
-    const { error } = await this.supa.client.storage
-      .from('website')
-      .remove([path]);
-    if (error) throw error;
-  }
-
-  getImageUrl(path: string): string {
-    return this.supa.client.storage.from('website').getPublicUrl(path).data.publicUrl;
   }
 
   // --- Bottle methods ---

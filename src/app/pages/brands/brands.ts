@@ -1,8 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BrandService, Brand } from '../../core/services/brand';
+import { BrandService, Brand, BrandImage, MAX_BRAND_IMAGES } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
+import { PerfumeService, Perfume } from '../../core/services/perfume';
 
 @Component({
   selector: 'app-brands',
@@ -14,6 +15,7 @@ import { CompanyService, Company } from '../../core/services/company';
 export class Brands implements OnInit {
   companies: Company[] = [];
   brands: Brand[] = [];
+  perfumes: Perfume[] = [];
   error = '';
   loading = false;
 
@@ -24,8 +26,13 @@ export class Brands implements OnInit {
   editId: number | null = null;
   selectedCompanyId: number | null = null;
 
-  form: Partial<Brand> = { name: '', company_id: undefined, description: '' };
+  form: Partial<Brand> = { name: '', company_id: undefined, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
   newCompany: Partial<Company> = { name: '', country: '' };
+
+  brandImages: BrandImage[] = [];
+  brandImagesLoading = false;
+  uploadingImage = false;
+  readonly maxBrandImages = MAX_BRAND_IMAGES;
 
   showCompanyModal = false;
   isEditCompany = false;
@@ -35,6 +42,7 @@ export class Brands implements OnInit {
   constructor(
     private brandSvc: BrandService,
     private companySvc: CompanyService,
+    private perfumeSvc: PerfumeService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -44,9 +52,10 @@ export class Brands implements OnInit {
     this.error = '';
     this.loading = true;
     try {
-      [this.brands, this.companies] = await Promise.all([
+      [this.brands, this.companies, this.perfumes] = await Promise.all([
         this.brandSvc.getAll(),
-        this.companySvc.getAll()
+        this.companySvc.getAll(),
+        this.perfumeSvc.getAll(),
       ]);
     } catch (e: any) {
       this.error = e?.message || 'Failed to load';
@@ -54,6 +63,10 @@ export class Brands implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  getInventory(brandId: number): Perfume | null {
+    return this.perfumes.find(p => p.brand_id === brandId) || null;
   }
 
   getCompanyBrands(companyId: number): Brand[] {
@@ -118,16 +131,82 @@ export class Brands implements OnInit {
     this.isEdit = false;
     this.editId = null;
     this.selectedCompanyId = companyId;
-    this.form = { name: '', company_id: companyId, description: '' };
+    this.brandImages = [];
+    this.form = { name: '', company_id: companyId, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
     this.showModal = true;
   }
 
-  openEditBrand(b: Brand) {
+  async openEditBrand(b: Brand) {
     this.isEdit = true;
     this.editId = b.id!;
     this.selectedCompanyId = b.company_id || null;
-    this.form = { name: b.name, company_id: b.company_id, description: b.description };
+    this.form = {
+      name: b.name, company_id: b.company_id, description: b.description,
+      cost_price: b.cost_price ?? null, full_bottle_price: b.full_bottle_price ?? null, full_bottle_sale_price: b.full_bottle_sale_price ?? null,
+      gender: b.gender || 'unisex',
+    };
     this.showModal = true;
+    await this.loadBrandImages(b.id!);
+  }
+
+  private async loadBrandImages(brandId: number) {
+    this.brandImagesLoading = true;
+    this.cdr.markForCheck();
+    try {
+      this.brandImages = await this.brandSvc.getImages(brandId);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to load images';
+    } finally {
+      this.brandImagesLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  getBrandImageUrl(img: BrandImage): string {
+    return this.brandSvc.getImageUrl(img.image_path);
+  }
+
+  async onBrandImageSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.editId) return;
+    this.uploadingImage = true;
+    this.error = '';
+    this.cdr.markForCheck();
+    try {
+      const img = await this.brandSvc.uploadImage(file, this.editId, this.brandImages.length);
+      this.brandImages.push(img);
+    } catch (e: any) {
+      this.error = e?.message || 'Image upload failed';
+    } finally {
+      this.uploadingImage = false;
+      input.value = '';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async removeBrandImage(img: BrandImage) {
+    if (!confirm('Remove this image?')) return;
+    try {
+      await this.brandSvc.deleteImage(img);
+      this.brandImages = this.brandImages.filter(i => i.id !== img.id);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to remove image';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async moveBrandImage(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= this.brandImages.length) return;
+    [this.brandImages[index], this.brandImages[target]] = [this.brandImages[target], this.brandImages[index]];
+    this.cdr.markForCheck();
+    try {
+      await this.brandSvc.reorderImages(this.brandImages);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to reorder images';
+      this.cdr.markForCheck();
+    }
   }
 
   async save() {
@@ -136,6 +215,7 @@ export class Brands implements OnInit {
       if (this.isEdit && this.editId) await this.brandSvc.update(this.editId, this.form);
       else await this.brandSvc.create(this.form);
       this.showModal = false;
+      this.brandImages = [];
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Save failed';
