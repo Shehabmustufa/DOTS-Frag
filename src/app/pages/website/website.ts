@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WebsiteSettingsService, WebsiteSettings } from '../../core/services/website-settings';
 import { BannerService, Banner } from '../../core/services/banner';
+import { MenuVisualsService, MenuVisual, MENU_VISUAL_GROUPS } from '../../core/services/menu-visuals';
 
 @Component({
   selector: 'app-website',
@@ -12,9 +13,14 @@ import { BannerService, Banner } from '../../core/services/banner';
   styleUrl: './website.scss',
 })
 export class Website {
-  activeTab: 'general' | 'banners' = 'general';
+  activeTab: 'general' | 'banners' | 'menus' = 'general';
   loading = true;
   saving = false;
+
+  readonly menuGroups = MENU_VISUAL_GROUPS;
+  visuals = new Map<string, MenuVisual>();
+  visualUrls = new Map<string, string>();
+  visualBusy: string | null = null;
 
   settings: WebsiteSettings | null = null;
   logoPreview: string | null = null;
@@ -31,6 +37,7 @@ export class Website {
   constructor(
     private settingsService: WebsiteSettingsService,
     private bannerService: BannerService,
+    private menuVisualsService: MenuVisualsService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -42,11 +49,14 @@ export class Website {
     this.loading = true;
     this.cdr.markForCheck();
     try {
-      const [settings, banners] = await Promise.all([
+      const [settings, banners, visuals] = await Promise.all([
         this.settingsService.get(),
         this.bannerService.getAll(),
+        this.menuVisualsService.getAll(),
       ]);
       this.settings = settings;
+      this.settings.logo_shape ||= 'circle';
+      this.settings.logo_size ||= 56;
       this.banners = banners;
       if (settings.logo_url) {
         this.logoPreview = this.settingsService.getPublicUrl(settings.logo_url);
@@ -56,6 +66,12 @@ export class Website {
         if (b.id) {
           this.bannerUrls.set(b.id, this.bannerService.getPublicUrl(b.image_path));
         }
+      }
+      this.visuals.clear();
+      this.visualUrls.clear();
+      for (const v of visuals) {
+        this.visuals.set(v.slot, v);
+        if (v.image_path) this.visualUrls.set(v.slot, this.menuVisualsService.getPublicUrl(v.image_path));
       }
     } catch (e: any) {
       alert('Failed to load: ' + (e.message || e));
@@ -95,6 +111,9 @@ export class Website {
         announcement_bg_color: this.settings.announcement_bg_color,
         announcement_text_color: this.settings.announcement_text_color,
         announcement_enabled: this.settings.announcement_enabled,
+        whatsapp_number: this.settings.whatsapp_number,
+        logo_shape: this.settings.logo_shape,
+        logo_size: this.settings.logo_size,
       });
       alert('Settings saved!');
     } catch (e: any) {
@@ -211,5 +230,77 @@ export class Website {
   closeBannerModal(): void {
     this.showBannerModal = false;
     this.cdr.markForCheck();
+  }
+
+  // --- Menu Visuals Tab ---
+
+  visual(slot: string): MenuVisual {
+    let v = this.visuals.get(slot);
+    if (!v) {
+      v = { slot, image_path: null, overlay_opacity: 0.35, is_enabled: true };
+      this.visuals.set(slot, v);
+    }
+    return v;
+  }
+
+  async onVisualFileSelected(slot: string, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.visualBusy = slot;
+    this.cdr.markForCheck();
+    try {
+      const current = this.visuals.get(slot);
+      if (current?.image_path) {
+        await this.menuVisualsService.deleteImage(current.image_path).catch(() => {});
+      }
+      const path = await this.menuVisualsService.uploadImage(slot, file);
+      await this.menuVisualsService.update(slot, { image_path: path });
+      this.visuals.set(slot, { ...this.visual(slot), image_path: path });
+      this.visualUrls.set(slot, this.menuVisualsService.getPublicUrl(path));
+    } catch (e: any) {
+      alert('Upload failed: ' + (e.message || e));
+    }
+    this.visualBusy = null;
+    this.cdr.markForCheck();
+  }
+
+  async clearVisualImage(slot: string): Promise<void> {
+    const current = this.visuals.get(slot);
+    if (!current?.image_path || !confirm('Remove this image?')) return;
+
+    this.visualBusy = slot;
+    this.cdr.markForCheck();
+    try {
+      await this.menuVisualsService.deleteImage(current.image_path).catch(() => {});
+      await this.menuVisualsService.update(slot, { image_path: null });
+      this.visuals.set(slot, { ...this.visual(slot), image_path: null });
+      this.visualUrls.delete(slot);
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
+    this.visualBusy = null;
+    this.cdr.markForCheck();
+  }
+
+  async toggleVisualEnabled(slot: string): Promise<void> {
+    const next = !this.visual(slot).is_enabled;
+    this.visuals.set(slot, { ...this.visual(slot), is_enabled: next });
+    this.cdr.markForCheck();
+    try {
+      await this.menuVisualsService.update(slot, { is_enabled: next });
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
+  }
+
+  async saveVisualOverlay(slot: string): Promise<void> {
+    try {
+      await this.menuVisualsService.update(slot, { overlay_opacity: this.visual(slot).overlay_opacity });
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
   }
 }

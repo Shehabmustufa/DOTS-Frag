@@ -50,7 +50,7 @@
 // Logo
 .logo-upload {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
 }
 
@@ -69,6 +69,33 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+}
+
+/* Live preview that mirrors website_settings.logo_shape / logo_size */
+.logo-preview--framed {
+  --preview-size: 56px;
+  width: calc(var(--preview-size) * 1.5);
+  height: calc(var(--preview-size) * 1.5);
+  min-width: 40px;
+  min-height: 40px;
+  max-width: 130px;
+  max-height: 130px;
+  flex-shrink: 0;
+  transition: width .12s ease, height .12s ease, border-radius .12s ease;
+
+  &.shape-square { border-radius: 10px; }
+
+  &.shape-rectangle {
+    width: auto;
+    min-width: 90px;
+    max-width: 220px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+
+    img { width: auto; max-width: 100%; object-fit: contain; }
   }
 }
 
@@ -289,6 +316,75 @@
   text-align: center;
   padding: 40px;
   color: #888;
+}
+
+.menus-intro {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+  max-width: 640px;
+}
+
+.visual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.visual-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+
+  &.busy { opacity: 0.55; pointer-events: none; }
+}
+
+.visual-thumb {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f3f3f3;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.visual-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.visual-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  small { color: #888; font-size: 12px; line-height: 1.4; }
+}
+
+.visual-actions {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.visual-range {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #666;
+
+  input { width: 100%; }
 }
 
 @media (max-width: 768px) {

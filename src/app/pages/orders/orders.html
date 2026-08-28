@@ -51,6 +51,15 @@
       </select>
     </div>
     <div class="filter-group">
+      <label class="form-label mb-0">Source</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filterSource">
+        <option value="">All</option>
+        <option value="website">Website</option>
+        <option value="dashboard">Dashboard</option>
+        <option value="needs_cost">⚠ Needs cost price</option>
+      </select>
+    </div>
+    <div class="filter-group">
       <label class="form-label mb-0">From</label>
       <input type="date" class="form-control form-control-sm" [(ngModel)]="filterFrom">
     </div>
@@ -58,7 +67,7 @@
       <label class="form-label mb-0">To</label>
       <input type="date" class="form-control form-control-sm" [(ngModel)]="filterTo">
     </div>
-    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo || filterOwner || filterStatus || filterCollected">Clear</button>
+    <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()" *ngIf="filterFrom || filterTo || filterOwner || filterStatus || filterCollected || filterSource">Clear</button>
   </div>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
@@ -90,7 +99,11 @@
                   [class.discount-row]="!o.is_gift && !isOwnerOrder(o) && (o.discount_percentage || 0) > 0"
                   [class.cancelled-row]="o.order_status === 'cancelled'"
                   [class.owner-row]="isOwnerOrder(o)">
-                <td><strong>#{{ o.id }}</strong></td>
+                <td>
+                  <strong>#{{ o.id }}</strong>
+                  <span *ngIf="o.source === 'website'" class="badge bg-info text-dark d-block mt-1" style="font-weight:500;">Website</span>
+                  <span *ngIf="orderNeedsCost(o)" class="badge bg-warning text-dark d-block mt-1" style="font-weight:500;" title="A full bottle needs its purchase cost entered">⚠ Needs cost</span>
+                </td>
                 <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
                 <td>{{ o.order_items?.length || 0 }}</td>
                 <td>
@@ -131,13 +144,36 @@
                     <ul class="mb-0 mt-2">
                       <li *ngFor="let item of o.order_items">
                         <span *ngIf="item.is_refundable_bottle">
-                          {{ item.brand?.name || 'Unknown' }} — Refundable Bottle (Profit: {{ (item.bottle_sale_price! - item.bottle_cost_price!) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}) × {{ item.quantity }}
+                          {{ item.brand?.name || 'Unknown' }} — Refundable Bottle
+                          <ng-container *ngIf="item.bottle_cost_price">
+                            (Profit: {{ (item.bottle_sale_price! - item.bottle_cost_price!) * item.quantity | currency:'EGP':'symbol':'1.0-0' }})
+                          </ng-container>
+                          × {{ item.quantity }}
+                          <span *ngIf="!item.bottle_cost_price" class="d-inline-flex align-items-center gap-1 ms-2">
+                            <span class="badge bg-warning text-dark">cost price needed</span>
+                            <input type="number" class="form-control form-control-sm" style="width:110px;"
+                                   placeholder="Purchase cost" min="0"
+                                   [(ngModel)]="costEdits[item.id!]"
+                                   (click)="$event.stopPropagation()">
+                            <button class="btn btn-sm btn-primary"
+                                    [disabled]="savingCostItemId === item.id || !costEdits[item.id!]"
+                                    (click)="$event.stopPropagation(); saveItemCost(item)">
+                              {{ savingCostItemId === item.id ? 'Saving…' : 'Save' }}
+                            </button>
+                          </span>
                         </span>
                         <span *ngIf="!item.is_refundable_bottle">
                           {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
                         </span>
                       </li>
                     </ul>
+                    <p *ngIf="o.customer_note" class="mt-2 mb-0 text-muted" style="font-size:13px;">
+                      <strong>Customer note:</strong> {{ o.customer_note }}
+                    </p>
+                    <p *ngIf="o.source === 'website'" class="mt-1 mb-0 text-muted" style="font-size:13px;">
+                      <strong>Payment:</strong> {{ o.payment_method || '—' }}
+                      &nbsp;•&nbsp; <strong>Delivery fee:</strong> {{ (o.delivery_fee || 0) | currency:'EGP':'symbol':'1.0-0' }}
+                    </p>
                   </div>
 
                   <div class="order-packaging-detail mt-3">

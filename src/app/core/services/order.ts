@@ -31,6 +31,11 @@ export interface Order {
   discount_percentage?: number;
   is_gift?: boolean;
   is_money_collected?: boolean;
+  /** 'dashboard' (default) or 'website' — where the order originated. */
+  source?: 'dashboard' | 'website';
+  payment_method?: string | null;
+  delivery_fee?: number | null;
+  customer_note?: string | null;
   created_at?: string;
   customer?: { name: string; mobile_number: string };
   order_items?: OrderItem[];
@@ -99,6 +104,15 @@ export class OrderService {
   async updateStatus(id: number, status: Order['order_status']): Promise<void> {
     const { error } = await this.supa.client
       .from('orders').update({ order_status: status }).eq('id', id);
+    if (error) throw error;
+  }
+
+  /** Fill in the purchase cost for a refundable-bottle line (used to complete website orders). */
+  async setItemCostPrice(itemId: number, costPrice: number): Promise<void> {
+    const { error } = await this.supa.client
+      .from('order_items')
+      .update({ bottle_cost_price: Number(costPrice) || 0 })
+      .eq('id', itemId);
     if (error) throw error;
   }
 

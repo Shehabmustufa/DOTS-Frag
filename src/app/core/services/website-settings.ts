@@ -8,6 +8,12 @@ export interface WebsiteSettings {
   announcement_bg_color: string;
   announcement_text_color: string;
   announcement_enabled: boolean;
+  /** Business WhatsApp number, digits with country code (e.g. "201012345678"). */
+  whatsapp_number: string | null;
+  /** Header logo frame on the website: 'circle' | 'square' | 'rectangle'. */
+  logo_shape: 'circle' | 'square' | 'rectangle';
+  /** Header logo height in px (20–80; clamped to the header on the site). */
+  logo_size: number;
   updated_at: string;
 }
 
@@ -32,6 +38,13 @@ export class WebsiteSettingsService {
     if (settings.announcement_bg_color !== undefined) payload.announcement_bg_color = settings.announcement_bg_color;
     if (settings.announcement_text_color !== undefined) payload.announcement_text_color = settings.announcement_text_color;
     if (settings.announcement_enabled !== undefined) payload.announcement_enabled = settings.announcement_enabled;
+    if (settings.whatsapp_number !== undefined) {
+      payload.whatsapp_number = settings.whatsapp_number ? String(settings.whatsapp_number).replace(/\D/g, '') : null;
+    }
+    if (settings.logo_shape !== undefined) payload.logo_shape = settings.logo_shape;
+    if (settings.logo_size !== undefined) {
+      payload.logo_size = Math.min(Math.max(Math.round(Number(settings.logo_size) || 56), 20), 80);
+    }
 
     const { error } = await this.supa.client
       .from('website_settings')

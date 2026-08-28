@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { OrderService, Order } from '../../core/services/order';
+import { OrderService, Order, OrderItem } from '../../core/services/order';
 import { CustomerService, Customer } from '../../core/services/customer';
 import { PerfumeService, Perfume } from '../../core/services/perfume';
 import { BrandService, Brand } from '../../core/services/brand';
@@ -86,6 +86,17 @@ export class Orders implements OnInit {
     this._filterCollected = val;
     this.applyFiltersAndGrouping();
   }
+
+  private _filterSource: '' | 'website' | 'dashboard' | 'needs_cost' = '';
+  get filterSource() { return this._filterSource; }
+  set filterSource(val: '' | 'website' | 'dashboard' | 'needs_cost') {
+    this._filterSource = val;
+    this.applyFiltersAndGrouping();
+  }
+
+  /** Inline "set cost price" input state, keyed by order_item id. */
+  costEdits: Record<number, number | null> = {};
+  savingCostItemId: number | null = null;
 
   pageSize = 10;
   showModal = false;
@@ -176,6 +187,14 @@ export class Orders implements OnInit {
       result = result.filter(o => !o.is_money_collected);
     }
 
+    if (this._filterSource === 'website') {
+      result = result.filter(o => o.source === 'website');
+    } else if (this._filterSource === 'dashboard') {
+      result = result.filter(o => o.source !== 'website');
+    } else if (this._filterSource === 'needs_cost') {
+      result = result.filter(o => this.orderNeedsCost(o));
+    }
+
     if (this._filterFrom) {
       const from = new Date(this._filterFrom);
       from.setHours(0, 0, 0, 0);
@@ -223,7 +242,32 @@ export class Orders implements OnInit {
     this._filterOwner = '';
     this._filterStatus = '';
     this._filterCollected = '';
+    this._filterSource = '';
     this.applyFiltersAndGrouping();
+  }
+
+  /** A website order with a refundable bottle whose purchase cost hasn't been entered yet. */
+  orderNeedsCost(o: Order): boolean {
+    return o.source === 'website'
+      && !!o.order_items?.some(i => i.is_refundable_bottle && !Number(i.bottle_cost_price));
+  }
+
+  async saveItemCost(item: OrderItem): Promise<void> {
+    const value = Number(this.costEdits[item.id!]);
+    if (!item.id || !value || value <= 0) return;
+    this.savingCostItemId = item.id;
+    this.cdr.markForCheck();
+    try {
+      await this.svc.setItemCostPrice(item.id, value);
+      item.bottle_cost_price = value;
+      delete this.costEdits[item.id];
+      this.applyFiltersAndGrouping();
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to save cost price';
+    } finally {
+      this.savingCostItemId = null;
+      this.cdr.markForCheck();
+    }
   }
 
   getPagedOrders(group: DayGroup): Order[] {
