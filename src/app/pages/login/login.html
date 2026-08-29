@@ -8,14 +8,14 @@
     <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
     <div class="mb-3">
-      <label class="form-label">Username</label>
-      <input class="form-control" [(ngModel)]="username" placeholder="Enter username"
-        (keyup.enter)="submit()" [disabled]="loading" autofocus>
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" [(ngModel)]="email" placeholder="you@example.com"
+        autocomplete="username" (keyup.enter)="submit()" [disabled]="loading" autofocus>
     </div>
     <div class="mb-3">
       <label class="form-label">Password</label>
       <input type="password" class="form-control" [(ngModel)]="password" placeholder="Enter password"
-        (keyup.enter)="submit()" [disabled]="loading">
+        autocomplete="current-password" (keyup.enter)="submit()" [disabled]="loading">
     </div>
     <button class="btn btn-primary w-100" (click)="submit()" [disabled]="loading">
       <span *ngIf="loading">Logging in...</span>

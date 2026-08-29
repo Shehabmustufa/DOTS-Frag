@@ -12,8 +12,8 @@ import { AuthService } from '../../core/services/auth';
 export class Sidebar {
   constructor(private auth: AuthService, private router: Router) {}
 
-  logout() {
-    this.auth.logout();
+  async logout() {
+    await this.auth.logout();
     this.router.navigate(['/login']);
   }
 }
