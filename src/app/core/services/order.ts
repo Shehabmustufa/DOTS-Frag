@@ -36,6 +36,8 @@ export interface Order {
   payment_method?: string | null;
   delivery_fee?: number | null;
   customer_note?: string | null;
+  /** When inventory was deducted. NULL = website request not yet confirmed. */
+  confirmed_at?: string | null;
   created_at?: string;
   customer?: { name: string; mobile_number: string };
   order_items?: OrderItem[];
@@ -104,6 +106,13 @@ export class OrderService {
   async updateStatus(id: number, status: Order['order_status']): Promise<void> {
     const { error } = await this.supa.client
       .from('orders').update({ order_status: status }).eq('id', id);
+    if (error) throw error;
+  }
+
+  /** Confirm a website order request: deduct inventory now and stamp confirmed_at.
+   *  Throws 'Not enough inventory for ...' if stock ran out since the request. */
+  async confirmWebsiteOrder(orderId: number): Promise<void> {
+    const { error } = await this.supa.client.rpc('confirm_website_order', { p_order_id: orderId });
     if (error) throw error;
   }
 

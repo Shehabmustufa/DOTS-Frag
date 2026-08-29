@@ -45,7 +45,7 @@ export class Perfumes implements OnInit {
     bought_from: '', price_original: 0,
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
     description: '', notes: '', gender: 'unisex',
-    is_published: false,
+    is_published: false, is_summer: false, is_winter: false,
     sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
   };
 
@@ -222,6 +222,7 @@ export class Perfumes implements OnInit {
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
       description: p.description || '', notes: p.notes || '',
       gender: p.gender || 'unisex', is_published: p.is_published || false,
+      is_summer: p.is_summer || false, is_winter: p.is_winter || false,
       sale_price_5ml: p.sale_price_5ml ?? null, sale_price_10ml: p.sale_price_10ml ?? null, sale_price_30ml: p.sale_price_30ml ?? null,
     };
     this.brandForm = {
