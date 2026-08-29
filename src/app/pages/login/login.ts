@@ -12,7 +12,7 @@ import { AuthService } from '../../core/services/auth';
   styleUrl: './login.scss',
 })
 export class Login {
-  username = '';
+  email = '';
   password = '';
   error = '';
   loading = false;
@@ -25,17 +25,17 @@ export class Login {
 
   async submit() {
     this.error = '';
-    if (!this.username.trim() || !this.password.trim()) {
-      this.error = 'Please enter username and password.';
+    if (!this.email.trim() || !this.password.trim()) {
+      this.error = 'Please enter your email and password.';
       return;
     }
     this.loading = true;
     try {
-      const ok = await this.auth.login(this.username.trim(), this.password);
+      const ok = await this.auth.login(this.email.trim(), this.password);
       if (ok) {
         this.router.navigate(['/perfumes']);
       } else {
-        this.error = 'Invalid username or password.';
+        this.error = 'Invalid email or password.';
       }
     } catch (e: any) {
       this.error = e.message || 'Login failed.';

@@ -1,36 +1,32 @@
 import { Injectable } from '@angular/core';
 import { SupabaseService } from './supabase';
 
+/** Dashboard auth, backed by Supabase Auth (email + password).
+ *  Staff accounts are created in the Supabase dashboard; public sign-up is disabled. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   constructor(private supa: SupabaseService) {}
 
-  get isLoggedIn(): boolean {
-    return sessionStorage.getItem('dots_logged_in') === 'true';
+  async login(email: string, password: string): Promise<boolean> {
+    const { error } = await this.supa.client.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    return !error;
   }
 
-  async login(username: string, password: string): Promise<boolean> {
-    const { data, error } = await this.supa.client
-      .from('app_users')
-      .select('id')
-      .eq('username', username)
-      .eq('password', password)
-      .limit(1);
-    if (error) throw error;
-    if (data && data.length > 0) {
-      sessionStorage.setItem('dots_logged_in', 'true');
-      sessionStorage.setItem('dots_username', username);
-      return true;
-    }
-    return false;
+  async logout(): Promise<void> {
+    await this.supa.client.auth.signOut();
   }
 
-  logout() {
-    sessionStorage.removeItem('dots_logged_in');
-    sessionStorage.removeItem('dots_username');
+  /** Resolves from the persisted session in localStorage — no network call. */
+  async isLoggedIn(): Promise<boolean> {
+    const { data } = await this.supa.client.auth.getSession();
+    return !!data.session;
   }
 
-  get username(): string {
-    return sessionStorage.getItem('dots_username') || '';
+  async email(): Promise<string> {
+    const { data } = await this.supa.client.auth.getSession();
+    return data.session?.user?.email ?? '';
   }
 }
