@@ -235,7 +235,7 @@
     </div>
     <div class="modal-panel-body">
       <div class="form-group">
-        <label>Banner Image</label>
+        <label>Banner Image (desktop)</label>
         <label class="btn btn-sm btn-outline-primary">
           {{ bannerFile ? 'Change Image' : 'Choose Image' }}
           <input type="file" accept="image/*" (change)="onBannerFileSelected($event)" hidden>
@@ -245,7 +245,26 @@
             <img [src]="bannerFilePreview" alt="Banner preview">
           </div>
         }
-        <small>Recommended: 1920x600px, JPG or WebP</small>
+        <small>Wide format — 1920×600px (16:5), JPG or WebP.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Mobile Image (optional)</label>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="btn btn-sm btn-outline-primary mb-0">
+            {{ bannerMobileFile ? 'Change Image' : 'Choose Image' }}
+            <input type="file" accept="image/*" (change)="onBannerMobileFileSelected($event)" hidden>
+          </label>
+          @if (bannerMobilePreview) {
+            <button class="btn btn-sm btn-outline-danger mb-0" (click)="clearBannerMobileImage()">Remove</button>
+          }
+        </div>
+        @if (bannerMobilePreview) {
+          <div class="banner-preview-img" style="max-width:220px;">
+            <img [src]="bannerMobilePreview" alt="Mobile banner preview">
+          </div>
+        }
+        <small>Shown on phones instead of the wide image. Roughly square — 1080×1080px (or 1200×900). If left empty, phones use the desktop image.</small>
       </div>
       <div class="form-group">
         <label>Title (optional)</label>

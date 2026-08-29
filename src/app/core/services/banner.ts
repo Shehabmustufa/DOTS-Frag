@@ -4,6 +4,8 @@ import { SupabaseService } from './supabase';
 export interface Banner {
   id?: number;
   image_path: string;
+  /** Optional dedicated image for phones; falls back to image_path when null. */
+  mobile_image_path?: string | null;
   title?: string | null;
   subtitle?: string | null;
   button_text?: string | null;
@@ -30,6 +32,7 @@ export class BannerService {
   async create(banner: Partial<Banner>): Promise<void> {
     const payload = {
       image_path: banner.image_path!,
+      mobile_image_path: banner.mobile_image_path || null,
       title: banner.title || null,
       subtitle: banner.subtitle || null,
       button_text: banner.button_text || null,
@@ -44,6 +47,7 @@ export class BannerService {
   async update(id: number, banner: Partial<Banner>): Promise<void> {
     const payload: any = { updated_at: new Date().toISOString() };
     if (banner.image_path !== undefined) payload.image_path = banner.image_path;
+    if (banner.mobile_image_path !== undefined) payload.mobile_image_path = banner.mobile_image_path || null;
     if (banner.title !== undefined) payload.title = banner.title || null;
     if (banner.subtitle !== undefined) payload.subtitle = banner.subtitle || null;
     if (banner.button_text !== undefined) payload.button_text = banner.button_text || null;
@@ -60,10 +64,10 @@ export class BannerService {
     if (error) throw error;
   }
 
-  async uploadImage(file: File): Promise<string> {
+  async uploadImage(file: File, variant: 'desktop' | 'mobile' = 'desktop'): Promise<string> {
     const timestamp = Date.now();
     const ext = file.name.split('.').pop() || 'jpg';
-    const path = `banners/${timestamp}.${ext}`;
+    const path = `banners/${variant === 'mobile' ? 'mobile-' : ''}${timestamp}.${ext}`;
 
     const { error } = await this.supa.client.storage
       .from('website')

@@ -33,6 +33,8 @@ export class Website {
   bannerForm: Partial<Banner> = {};
   bannerFile: File | null = null;
   bannerFilePreview: string | null = null;
+  bannerMobileFile: File | null = null;
+  bannerMobilePreview: string | null = null;
 
   constructor(
     private settingsService: WebsiteSettingsService,
@@ -130,6 +132,8 @@ export class Website {
     this.bannerForm = { title: '', subtitle: '', button_text: '', button_link: '', display_order: this.banners.length, is_active: true };
     this.bannerFile = null;
     this.bannerFilePreview = null;
+    this.bannerMobileFile = null;
+    this.bannerMobilePreview = null;
     this.showBannerModal = true;
     this.cdr.markForCheck();
   }
@@ -139,6 +143,10 @@ export class Website {
     this.bannerForm = { ...banner };
     this.bannerFile = null;
     this.bannerFilePreview = banner.id ? (this.bannerUrls.get(banner.id) || null) : null;
+    this.bannerMobileFile = null;
+    this.bannerMobilePreview = banner.mobile_image_path
+      ? this.bannerService.getPublicUrl(banner.mobile_image_path)
+      : null;
     this.showBannerModal = true;
     this.cdr.markForCheck();
   }
@@ -156,6 +164,36 @@ export class Website {
     reader.readAsDataURL(file);
   }
 
+  onBannerMobileFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.bannerMobileFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.bannerMobilePreview = reader.result as string;
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async clearBannerMobileImage(): Promise<void> {
+    if (this.editingBanner?.id && this.editingBanner.mobile_image_path) {
+      if (!confirm('Remove the mobile image? Phones will use the main image.')) return;
+      try {
+        await this.bannerService.deleteImage(this.editingBanner.mobile_image_path);
+        await this.bannerService.update(this.editingBanner.id, { mobile_image_path: null });
+        this.editingBanner.mobile_image_path = null;
+      } catch (e: any) {
+        alert('Error: ' + (e.message || e));
+        return;
+      }
+    }
+    this.bannerMobileFile = null;
+    this.bannerMobilePreview = null;
+    this.cdr.markForCheck();
+  }
+
   async saveBanner(): Promise<void> {
     if (!this.bannerFile && !this.editingBanner) {
       alert('Please select an image');
@@ -165,17 +203,26 @@ export class Website {
     this.cdr.markForCheck();
     try {
       let imagePath = this.editingBanner?.image_path || '';
+      let mobilePath = this.editingBanner?.mobile_image_path ?? null;
 
       if (this.bannerFile) {
         if (this.editingBanner?.image_path) {
           await this.bannerService.deleteImage(this.editingBanner.image_path);
         }
-        imagePath = await this.bannerService.uploadImage(this.bannerFile);
+        imagePath = await this.bannerService.uploadImage(this.bannerFile, 'desktop');
+      }
+
+      if (this.bannerMobileFile) {
+        if (this.editingBanner?.mobile_image_path) {
+          await this.bannerService.deleteImage(this.editingBanner.mobile_image_path);
+        }
+        mobilePath = await this.bannerService.uploadImage(this.bannerMobileFile, 'mobile');
       }
 
       if (this.editingBanner?.id) {
         await this.bannerService.update(this.editingBanner.id, {
           image_path: imagePath,
+          mobile_image_path: mobilePath,
           title: this.bannerForm.title,
           subtitle: this.bannerForm.subtitle,
           button_text: this.bannerForm.button_text,
@@ -186,6 +233,7 @@ export class Website {
       } else {
         await this.bannerService.create({
           image_path: imagePath,
+          mobile_image_path: mobilePath,
           title: this.bannerForm.title,
           subtitle: this.bannerForm.subtitle,
           button_text: this.bannerForm.button_text,
