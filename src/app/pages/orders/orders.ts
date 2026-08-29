@@ -87,9 +87,9 @@ export class Orders implements OnInit {
     this.applyFiltersAndGrouping();
   }
 
-  private _filterSource: '' | 'website' | 'dashboard' | 'needs_cost' = '';
+  private _filterSource: '' | 'website' | 'dashboard' | 'needs_cost' | 'unconfirmed' = '';
   get filterSource() { return this._filterSource; }
-  set filterSource(val: '' | 'website' | 'dashboard' | 'needs_cost') {
+  set filterSource(val: '' | 'website' | 'dashboard' | 'needs_cost' | 'unconfirmed') {
     this._filterSource = val;
     this.applyFiltersAndGrouping();
   }
@@ -97,6 +97,7 @@ export class Orders implements OnInit {
   /** Inline "set cost price" input state, keyed by order_item id. */
   costEdits: Record<number, number | null> = {};
   savingCostItemId: number | null = null;
+  confirmingOrderId: number | null = null;
 
   pageSize = 10;
   showModal = false;
@@ -193,6 +194,8 @@ export class Orders implements OnInit {
       result = result.filter(o => o.source !== 'website');
     } else if (this._filterSource === 'needs_cost') {
       result = result.filter(o => this.orderNeedsCost(o));
+    } else if (this._filterSource === 'unconfirmed') {
+      result = result.filter(o => this.isAwaitingConfirmation(o));
     }
 
     if (this._filterFrom) {
@@ -250,6 +253,28 @@ export class Orders implements OnInit {
   orderNeedsCost(o: Order): boolean {
     return o.source === 'website'
       && !!o.order_items?.some(i => i.is_refundable_bottle && !Number(i.bottle_cost_price));
+  }
+
+  /** A website order request whose inventory hasn't been deducted yet. */
+  isAwaitingConfirmation(o: Order): boolean {
+    return o.source === 'website' && !o.confirmed_at && o.order_status !== 'cancelled';
+  }
+
+  async confirmOrder(o: Order): Promise<void> {
+    if (!o.id || this.confirmingOrderId) return;
+    this.confirmingOrderId = o.id;
+    this.error = '';
+    this.cdr.markForCheck();
+    try {
+      await this.svc.confirmWebsiteOrder(o.id);
+      await this.load();
+    } catch (e: any) {
+      this.error = e?.message || 'Could not confirm order';
+      this.cdr.markForCheck();
+    } finally {
+      this.confirmingOrderId = null;
+      this.cdr.markForCheck();
+    }
   }
 
   async saveItemCost(item: OrderItem): Promise<void> {

@@ -19,6 +19,8 @@ export interface Perfume {
   notes?: string;
   gender?: 'men' | 'women' | 'unisex';
   is_published?: boolean;
+  is_summer?: boolean;
+  is_winter?: boolean;
   sale_price_5ml?: number | null;
   sale_price_10ml?: number | null;
   sale_price_30ml?: number | null;
@@ -90,6 +92,8 @@ export class PerfumeService {
     if (p.notes !== undefined) payload.notes = p.notes;
     if (p.gender !== undefined) payload.gender = p.gender;
     if (p.is_published !== undefined) payload.is_published = p.is_published;
+    if (p.is_summer !== undefined) payload.is_summer = !!p.is_summer;
+    if (p.is_winter !== undefined) payload.is_winter = !!p.is_winter;
     if (p.sale_price_5ml !== undefined) payload.sale_price_5ml = p.sale_price_5ml === null || (p.sale_price_5ml as any) === '' ? null : Number(p.sale_price_5ml);
     if (p.sale_price_10ml !== undefined) payload.sale_price_10ml = p.sale_price_10ml === null || (p.sale_price_10ml as any) === '' ? null : Number(p.sale_price_10ml);
     if (p.sale_price_30ml !== undefined) payload.sale_price_30ml = p.sale_price_30ml === null || (p.sale_price_30ml as any) === '' ? null : Number(p.sale_price_30ml);

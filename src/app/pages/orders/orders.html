@@ -56,6 +56,7 @@
         <option value="">All</option>
         <option value="website">Website</option>
         <option value="dashboard">Dashboard</option>
+        <option value="unconfirmed">⏳ Awaiting confirmation</option>
         <option value="needs_cost">⚠ Needs cost price</option>
       </select>
     </div>
@@ -102,6 +103,7 @@
                 <td>
                   <strong>#{{ o.id }}</strong>
                   <span *ngIf="o.source === 'website'" class="badge bg-info text-dark d-block mt-1" style="font-weight:500;">Website</span>
+                  <span *ngIf="isAwaitingConfirmation(o)" class="badge bg-secondary d-block mt-1" style="font-weight:500;" title="Order request — inventory not deducted yet">⏳ Unconfirmed</span>
                   <span *ngIf="orderNeedsCost(o)" class="badge bg-warning text-dark d-block mt-1" style="font-weight:500;" title="A full bottle needs its purchase cost entered">⚠ Needs cost</span>
                 </td>
                 <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
@@ -126,7 +128,13 @@
                 </td>
                 <td (click)="$event.stopPropagation()">
                 <span *ngIf="o.order_status === 'cancelled'" class="badge bg-danger">Cancelled</span>
-                <select *ngIf="o.order_status !== 'cancelled'" class="form-select form-select-sm" [ngModel]="o.order_status" (ngModelChange)="updateStatus(o, $event)">
+                <button *ngIf="isAwaitingConfirmation(o)" class="btn btn-sm btn-success"
+                        [disabled]="confirmingOrderId === o.id"
+                        (click)="confirmOrder(o)"
+                        title="Deduct inventory and confirm this request">
+                  {{ confirmingOrderId === o.id ? 'Confirming…' : 'Confirm order' }}
+                </button>
+                <select *ngIf="o.order_status !== 'cancelled' && !isAwaitingConfirmation(o)" class="form-select form-select-sm" [ngModel]="o.order_status" (ngModelChange)="updateStatus(o, $event)">
                   <option value="placed">Placed</option>
                   <option value="delivery">Delivery</option>
                   <option value="delivered">Delivered</option>
