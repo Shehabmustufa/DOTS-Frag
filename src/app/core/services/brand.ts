@@ -12,6 +12,9 @@ export interface Brand {
   full_bottle_price?: number | null;
   full_bottle_sale_price?: number | null;
   gender?: 'men' | 'women' | 'unisex';
+  /** Season tags — mirror perfumes.is_summer / is_winter, used by the website filter. */
+  is_summer?: boolean;
+  is_winter?: boolean;
   created_at?: string;
 }
 
@@ -56,6 +59,8 @@ export class BrandService {
       company_id: Number(b.company_id),
       description: b.description || null,
       gender: b.gender || 'unisex',
+      is_summer: !!b.is_summer,
+      is_winter: !!b.is_winter,
     };
     const { error } = await this.supa.client.from(this.table).insert([payload]);
     if (error) throw error;
@@ -67,6 +72,8 @@ export class BrandService {
     if (b.company_id !== undefined) payload.company_id = Number(b.company_id);
     if (b.description !== undefined) payload.description = b.description || null;
     if (b.gender !== undefined) payload.gender = b.gender;
+    if (b.is_summer !== undefined) payload.is_summer = !!b.is_summer;
+    if (b.is_winter !== undefined) payload.is_winter = !!b.is_winter;
     if (b.cost_price !== undefined) payload.cost_price = b.cost_price === null || b.cost_price === ('' as any) ? null : Number(b.cost_price);
     if (b.full_bottle_price !== undefined) payload.full_bottle_price = b.full_bottle_price === null || b.full_bottle_price === ('' as any) ? null : Number(b.full_bottle_price);
     if (b.full_bottle_sale_price !== undefined) payload.full_bottle_sale_price = b.full_bottle_sale_price === null || b.full_bottle_sale_price === ('' as any) ? null : Number(b.full_bottle_sale_price);
