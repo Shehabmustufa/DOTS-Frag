@@ -26,7 +26,7 @@ export class Brands implements OnInit {
   editId: number | null = null;
   selectedCompanyId: number | null = null;
 
-  form: Partial<Brand> = { name: '', company_id: undefined, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
+  form: Partial<Brand> = { name: '', company_id: undefined, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', is_summer: false, is_winter: false };
   newCompany: Partial<Company> = { name: '', country: '' };
 
   brandImages: BrandImage[] = [];
@@ -132,7 +132,7 @@ export class Brands implements OnInit {
     this.editId = null;
     this.selectedCompanyId = companyId;
     this.brandImages = [];
-    this.form = { name: '', company_id: companyId, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
+    this.form = { name: '', company_id: companyId, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', is_summer: false, is_winter: false };
     this.showModal = true;
   }
 
@@ -144,6 +144,7 @@ export class Brands implements OnInit {
       name: b.name, company_id: b.company_id, description: b.description,
       cost_price: b.cost_price ?? null, full_bottle_price: b.full_bottle_price ?? null, full_bottle_sale_price: b.full_bottle_sale_price ?? null,
       gender: b.gender || 'unisex',
+      is_summer: b.is_summer ?? false, is_winter: b.is_winter ?? false,
     };
     this.showModal = true;
     await this.loadBrandImages(b.id!);
