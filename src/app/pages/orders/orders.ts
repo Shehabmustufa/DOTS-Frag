@@ -391,6 +391,14 @@ export class Orders implements OnInit {
     return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
   }
 
+  // perfumes.full_ml is the SUM of every bottle ever bought for that perfume
+  // (maintained by add_perfume_bottle), not one bottle's size. Selling "a full
+  // bottle" needs the size of a single bottle, so approximate it as the average
+  // over every bottle bought — exact when all restocks are the same nominal size.
+  nominalBottleMl(p: Perfume): number {
+    return p.bottles_bought > 0 ? Math.round(p.full_ml / p.bottles_bought) : p.full_ml;
+  }
+
   getItemPrice(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }): number {
     if (item.is_refundable_bottle) {
       return (Number(item.bottle_sale_price) || 0) - (Number(item.bottle_cost_price) || 0);
@@ -431,7 +439,7 @@ export class Orders implements OnInit {
         if (idx >= 0) this.perfumeSearches[idx] = '';
       }
       const p = item.perfume_id ? this.perfumes.find(pf => pf.id === item.perfume_id) : null;
-      item.decant_size_ml = p ? p.full_ml : 0;
+      item.decant_size_ml = p ? this.nominalBottleMl(p) : 0;
     } else {
       item.is_refundable_bottle = false;
       item.is_full_bottle = false;
@@ -517,7 +525,7 @@ export class Orders implements OnInit {
       }
       if (i.is_full_bottle) {
         const p = this.perfumes.find(pf => pf.id === i.perfume_id);
-        return { ...i, perfume_id: i.perfume_id!, decant_size_ml: p ? p.full_ml : i.decant_size_ml };
+        return { ...i, perfume_id: i.perfume_id!, decant_size_ml: p ? this.nominalBottleMl(p) : i.decant_size_ml };
       }
       return { ...i, perfume_id: i.perfume_id! };
     });
