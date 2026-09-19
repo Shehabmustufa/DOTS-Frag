@@ -106,7 +106,7 @@ export class BrandService {
     const path = `brand-images/${brandId}/${Date.now()}.webp`;
     const { error: uploadError } = await this.supa.client.storage
       .from('website')
-      .upload(path, compressed, { contentType: 'image/webp' });
+      .upload(path, compressed, { contentType: 'image/webp', cacheControl: '31536000' });
     if (uploadError) throw uploadError;
 
     const { data, error } = await this.supa.client
