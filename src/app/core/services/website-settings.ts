@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SupabaseService } from './supabase';
+import { compressImage } from '../utils/image';
 
 export interface WebsiteSettings {
   id: number;
@@ -54,12 +55,15 @@ export class WebsiteSettingsService {
   }
 
   async uploadLogo(file: File): Promise<string> {
-    const ext = file.name.split('.').pop() || 'png';
-    const path = `logo/logo.${ext}`;
+    // Timestamped path (not a fixed `logo/logo.ext`) so the long cache-control below
+    // is safe — a re-upload gets a fresh URL instead of a browser/CDN serving the
+    // stale cached logo under the same path.
+    const compressed = await compressImage(file, 400, 0.9);
+    const path = `logo/logo-${Date.now()}.webp`;
 
     const { error } = await this.supa.client.storage
       .from('website')
-      .upload(path, file, { upsert: true, contentType: file.type });
+      .upload(path, compressed, { contentType: 'image/webp', cacheControl: '31536000' });
     if (error) throw error;
     return path;
   }

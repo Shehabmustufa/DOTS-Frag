@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SupabaseService } from './supabase';
+import { compressImage } from '../utils/image';
 
 export interface MenuVisual {
   slot: string;
@@ -56,11 +57,11 @@ export class MenuVisualsService {
   }
 
   async uploadImage(slot: string, file: File): Promise<string> {
-    const ext = file.name.split('.').pop() || 'jpg';
-    const path = `menu/${slot}-${Date.now()}.${ext}`;
+    const compressed = await compressImage(file, 1600, 0.85);
+    const path = `menu/${slot}-${Date.now()}.webp`;
     const { error } = await this.supa.client.storage
       .from('website')
-      .upload(path, file, { contentType: file.type, upsert: true });
+      .upload(path, compressed, { contentType: 'image/webp', upsert: true, cacheControl: '31536000' });
     if (error) throw error;
     return path;
   }

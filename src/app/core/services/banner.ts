@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SupabaseService } from './supabase';
+import { compressImage } from '../utils/image';
 
 export interface Banner {
   id?: number;
@@ -65,13 +66,12 @@ export class BannerService {
   }
 
   async uploadImage(file: File, variant: 'desktop' | 'mobile' = 'desktop'): Promise<string> {
-    const timestamp = Date.now();
-    const ext = file.name.split('.').pop() || 'jpg';
-    const path = `banners/${variant === 'mobile' ? 'mobile-' : ''}${timestamp}.${ext}`;
+    const compressed = await compressImage(file, variant === 'mobile' ? 1200 : 1920, 0.82);
+    const path = `banners/${variant === 'mobile' ? 'mobile-' : ''}${Date.now()}.webp`;
 
     const { error } = await this.supa.client.storage
       .from('website')
-      .upload(path, file, { contentType: file.type });
+      .upload(path, compressed, { contentType: 'image/webp', cacheControl: '31536000' });
     if (error) throw error;
     return path;
   }
