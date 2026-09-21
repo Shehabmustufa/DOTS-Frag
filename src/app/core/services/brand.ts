@@ -12,6 +12,9 @@ export interface Brand {
   full_bottle_price?: number | null;
   full_bottle_sale_price?: number | null;
   gender?: 'men' | 'women' | 'unisex';
+  /** Only meaningful when gender = 'unisex'. Never shown to customers — mirrors
+   *  perfumes.unisex_lean — also lists the full bottle under Men and/or Women. */
+  unisex_lean?: 'men' | 'women' | 'both' | null;
   /** Season tags — mirror perfumes.is_summer / is_winter, used by the website filter. */
   is_summer?: boolean;
   is_winter?: boolean;
@@ -59,6 +62,7 @@ export class BrandService {
       company_id: Number(b.company_id),
       description: b.description || null,
       gender: b.gender || 'unisex',
+      unisex_lean: b.unisex_lean || null,
       is_summer: !!b.is_summer,
       is_winter: !!b.is_winter,
     };
@@ -72,6 +76,7 @@ export class BrandService {
     if (b.company_id !== undefined) payload.company_id = Number(b.company_id);
     if (b.description !== undefined) payload.description = b.description || null;
     if (b.gender !== undefined) payload.gender = b.gender;
+    if (b.unisex_lean !== undefined) payload.unisex_lean = b.unisex_lean || null;
     if (b.is_summer !== undefined) payload.is_summer = !!b.is_summer;
     if (b.is_winter !== undefined) payload.is_winter = !!b.is_winter;
     if (b.cost_price !== undefined) payload.cost_price = b.cost_price === null || b.cost_price === ('' as any) ? null : Number(b.cost_price);

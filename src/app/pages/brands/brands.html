@@ -91,10 +91,19 @@
           </div>
           <div class="col-3">
             <label class="form-label">Gender</label>
-            <select class="form-select" [(ngModel)]="form.gender">
+            <select class="form-select" [(ngModel)]="form.gender" (ngModelChange)="onGenderChange($event)">
               <option value="men">Men</option>
               <option value="women">Women</option>
               <option value="unisex">Unisex</option>
+            </select>
+          </div>
+          <div class="col-3" *ngIf="form.gender === 'unisex'">
+            <label class="form-label">Also list under <span class="text-muted" style="font-weight:normal;">(internal only)</span></label>
+            <select class="form-select" [(ngModel)]="form.unisex_lean">
+              <option [ngValue]="null">— Unisex only —</option>
+              <option value="men">More Men</option>
+              <option value="women">More Women</option>
+              <option value="both">Both</option>
             </select>
           </div>
           <div class="col-3">
