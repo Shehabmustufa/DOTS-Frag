@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { WebsiteSettingsService, WebsiteSettings } from '../../core/services/website-settings';
 import { BannerService, Banner } from '../../core/services/banner';
 import { MenuVisualsService, MenuVisual, MENU_VISUAL_GROUPS } from '../../core/services/menu-visuals';
+import { AnnouncementService, Announcement } from '../../core/services/announcement';
 
 @Component({
   selector: 'app-website',
@@ -13,7 +14,7 @@ import { MenuVisualsService, MenuVisual, MENU_VISUAL_GROUPS } from '../../core/s
   styleUrl: './website.scss',
 })
 export class Website {
-  activeTab: 'general' | 'banners' | 'menus' = 'general';
+  activeTab: 'general' | 'announcements' | 'banners' | 'menus' = 'general';
   loading = true;
   saving = false;
 
@@ -36,10 +37,16 @@ export class Website {
   bannerMobileFile: File | null = null;
   bannerMobilePreview: string | null = null;
 
+  announcements: Announcement[] = [];
+  showAnnouncementModal = false;
+  editingAnnouncement: Announcement | null = null;
+  announcementForm: Partial<Announcement> = {};
+
   constructor(
     private settingsService: WebsiteSettingsService,
     private bannerService: BannerService,
     private menuVisualsService: MenuVisualsService,
+    private announcementService: AnnouncementService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -51,12 +58,14 @@ export class Website {
     this.loading = true;
     this.cdr.markForCheck();
     try {
-      const [settings, banners, visuals] = await Promise.all([
+      const [settings, banners, visuals, announcements] = await Promise.all([
         this.settingsService.get(),
         this.bannerService.getAll(),
         this.menuVisualsService.getAll(),
+        this.announcementService.getAll(),
       ]);
       this.settings = settings;
+      this.announcements = announcements;
       this.settings.logo_shape ||= 'circle';
       this.settings.logo_size ||= 56;
       this.banners = banners;
@@ -109,10 +118,6 @@ export class Website {
       }
       await this.settingsService.update({
         logo_url: this.settings.logo_url,
-        announcement_text: this.settings.announcement_text,
-        announcement_bg_color: this.settings.announcement_bg_color,
-        announcement_text_color: this.settings.announcement_text_color,
-        announcement_enabled: this.settings.announcement_enabled,
         whatsapp_number: this.settings.whatsapp_number,
         logo_shape: this.settings.logo_shape,
         logo_size: this.settings.logo_size,
@@ -278,6 +283,69 @@ export class Website {
   closeBannerModal(): void {
     this.showBannerModal = false;
     this.cdr.markForCheck();
+  }
+
+  // --- Announcements Tab ---
+
+  openAddAnnouncement(): void {
+    this.editingAnnouncement = null;
+    this.announcementForm = { text: '', bg_color: '#1a1a2e', text_color: '#ffffff', display_order: this.announcements.length, is_active: true };
+    this.showAnnouncementModal = true;
+    this.cdr.markForCheck();
+  }
+
+  openEditAnnouncement(a: Announcement): void {
+    this.editingAnnouncement = a;
+    this.announcementForm = { ...a };
+    this.showAnnouncementModal = true;
+    this.cdr.markForCheck();
+  }
+
+  closeAnnouncementModal(): void {
+    this.showAnnouncementModal = false;
+    this.cdr.markForCheck();
+  }
+
+  async saveAnnouncement(): Promise<void> {
+    if (!this.announcementForm.text?.trim()) {
+      alert('Please enter the announcement text');
+      return;
+    }
+    this.saving = true;
+    this.cdr.markForCheck();
+    try {
+      if (this.editingAnnouncement?.id) {
+        await this.announcementService.update(this.editingAnnouncement.id, this.announcementForm);
+      } else {
+        await this.announcementService.create(this.announcementForm);
+      }
+      this.showAnnouncementModal = false;
+      await this.load();
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
+    this.saving = false;
+    this.cdr.markForCheck();
+  }
+
+  async deleteAnnouncement(a: Announcement): Promise<void> {
+    if (!confirm('Delete this announcement?')) return;
+    try {
+      await this.announcementService.delete(a.id!);
+      await this.load();
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
+  }
+
+  async toggleAnnouncementActive(a: Announcement): Promise<void> {
+    try {
+      await this.announcementService.update(a.id!, { is_active: !a.is_active });
+      a.is_active = !a.is_active;
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      alert('Error: ' + (e.message || e));
+    }
   }
 
   // --- Menu Visuals Tab ---

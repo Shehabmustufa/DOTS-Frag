@@ -6,6 +6,7 @@
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab" [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">General</button>
+    <button class="tab" [class.active]="activeTab === 'announcements'" (click)="activeTab = 'announcements'">Announcements</button>
     <button class="tab" [class.active]="activeTab === 'banners'" (click)="activeTab = 'banners'">Banners</button>
     <button class="tab" [class.active]="activeTab === 'menus'" (click)="activeTab = 'menus'">Menu Visuals</button>
   </div>
@@ -70,49 +71,51 @@
         </div>
       </div>
 
-      <div class="settings-section">
-        <h3>Announcement Bar</h3>
-        <div class="form-group">
-          <label>Text</label>
-          <input type="text" class="form-control" [(ngModel)]="settings.announcement_text" placeholder="e.g., Free delivery on orders above 500 EGP">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Background Color</label>
-            <div class="color-input">
-              <input type="color" [(ngModel)]="settings.announcement_bg_color">
-              <input type="text" class="form-control" [(ngModel)]="settings.announcement_bg_color">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Text Color</label>
-            <div class="color-input">
-              <input type="color" [(ngModel)]="settings.announcement_text_color">
-              <input type="text" class="form-control" [(ngModel)]="settings.announcement_text_color">
-            </div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="toggle-label">
-            <input type="checkbox" [(ngModel)]="settings.announcement_enabled">
-            <span>Announcement Enabled</span>
-          </label>
-        </div>
-
-        <!-- Preview -->
-        @if (settings.announcement_text) {
-          <div class="announcement-preview"
-               [style.background-color]="settings.announcement_bg_color"
-               [style.color]="settings.announcement_text_color">
-            {{ settings.announcement_text }}
-          </div>
-        }
-      </div>
-
       <div class="settings-actions">
         <button class="btn btn-primary" (click)="saveGeneral()" [disabled]="saving">
           {{ saving ? 'Saving...' : 'Save Settings' }}
         </button>
+      </div>
+    </div>
+  }
+
+  <!-- Announcements Tab -->
+  @if (!loading && activeTab === 'announcements') {
+    <div class="tab-content">
+      <div class="banner-header">
+        <p>Announcement bar messages. With more than one active, the website rotates through them automatically.</p>
+        <button class="btn btn-primary btn-sm" (click)="openAddAnnouncement()">+ Add Announcement</button>
+      </div>
+
+      @if (announcements.length === 0) {
+        <div class="empty-state">
+          <p>No announcements yet. Add your first one!</p>
+        </div>
+      }
+
+      <div class="banner-list">
+        @for (a of announcements; track a.id) {
+          <div class="banner-card" [class.inactive]="!a.is_active">
+            <div class="announcement-swatch" [style.background-color]="a.bg_color" [style.color]="a.text_color">
+              {{ a.text }}
+            </div>
+            <div class="banner-info">
+              <div class="banner-meta">
+                <span class="banner-order">#{{ a.display_order }}</span>
+                <span class="banner-status" [class.active]="a.is_active">
+                  {{ a.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+            </div>
+            <div class="banner-actions">
+              <button class="btn btn-sm btn-outline-secondary" (click)="toggleAnnouncementActive(a)">
+                {{ a.is_active ? 'Disable' : 'Enable' }}
+              </button>
+              <button class="btn btn-sm btn-outline-primary" (click)="openEditAnnouncement(a)">Edit</button>
+              <button class="btn btn-sm btn-outline-danger" (click)="deleteAnnouncement(a)">Delete</button>
+            </div>
+          </div>
+        }
       </div>
     </div>
   }
@@ -301,6 +304,66 @@
       <button class="btn btn-secondary" (click)="closeBannerModal()">Cancel</button>
       <button class="btn btn-primary" (click)="saveBanner()" [disabled]="saving">
         {{ saving ? 'Saving...' : (editingBanner ? 'Update' : 'Create') }}
+      </button>
+    </div>
+  </div>
+}
+
+<!-- Announcement Modal -->
+@if (showAnnouncementModal) {
+  <div class="modal-backdrop-custom" (click)="closeAnnouncementModal()"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>{{ editingAnnouncement ? 'Edit Announcement' : 'Add Announcement' }}</h5>
+      <button class="btn-close" (click)="closeAnnouncementModal()">&times;</button>
+    </div>
+    <div class="modal-panel-body">
+      <div class="form-group">
+        <label>Text</label>
+        <input type="text" class="form-control" [(ngModel)]="announcementForm.text" placeholder="e.g., Free delivery on orders above 500 EGP">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Background Color</label>
+          <div class="color-input">
+            <input type="color" [(ngModel)]="announcementForm.bg_color">
+            <input type="text" class="form-control" [(ngModel)]="announcementForm.bg_color">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Text Color</label>
+          <div class="color-input">
+            <input type="color" [(ngModel)]="announcementForm.text_color">
+            <input type="text" class="form-control" [(ngModel)]="announcementForm.text_color">
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Display Order</label>
+          <input type="number" class="form-control" [(ngModel)]="announcementForm.display_order" min="0">
+        </div>
+        <div class="form-group">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="announcementForm.is_active">
+            <span>Active</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      @if (announcementForm.text) {
+        <div class="announcement-preview"
+             [style.background-color]="announcementForm.bg_color"
+             [style.color]="announcementForm.text_color">
+          {{ announcementForm.text }}
+        </div>
+      }
+    </div>
+    <div class="modal-panel-footer">
+      <button class="btn btn-secondary" (click)="closeAnnouncementModal()">Cancel</button>
+      <button class="btn btn-primary" (click)="saveAnnouncement()" [disabled]="saving">
+        {{ saving ? 'Saving...' : (editingAnnouncement ? 'Update' : 'Create') }}
       </button>
     </div>
   </div>
