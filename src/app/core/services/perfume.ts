@@ -18,6 +18,10 @@ export interface Perfume {
   description?: string;
   notes?: string;
   gender?: 'men' | 'women' | 'unisex';
+  /** Only meaningful when gender = 'unisex'. Never shown to customers — the
+   *  website still displays "Unisex" — it just also lists the item in the
+   *  Men and/or Women category pages alongside the Unisex one. */
+  unisex_lean?: 'men' | 'women' | 'both' | null;
   is_published?: boolean;
   is_summer?: boolean;
   is_winter?: boolean;
@@ -91,6 +95,7 @@ export class PerfumeService {
     if (p.description !== undefined) payload.description = p.description;
     if (p.notes !== undefined) payload.notes = p.notes;
     if (p.gender !== undefined) payload.gender = p.gender;
+    if (p.unisex_lean !== undefined) payload.unisex_lean = p.unisex_lean || null;
     if (p.is_published !== undefined) payload.is_published = p.is_published;
     if (p.is_summer !== undefined) payload.is_summer = !!p.is_summer;
     if (p.is_winter !== undefined) payload.is_winter = !!p.is_winter;

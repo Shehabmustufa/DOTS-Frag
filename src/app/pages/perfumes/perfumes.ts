@@ -44,13 +44,13 @@ export class Perfumes implements OnInit {
     brand_id: undefined, full_ml: 0, current_ml: 0,
     bought_from: '', price_original: 0,
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
-    description: '', notes: '', gender: 'unisex',
+    description: '', notes: '', gender: 'unisex', unisex_lean: null,
     is_published: false, is_summer: false, is_winter: false,
     sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
   };
 
   // --- Brand-level full-bottle catalog (shared with the Brands panel) ---
-  brandForm: Partial<Brand> = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
+  brandForm: Partial<Brand> = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
   brandImages: BrandImage[] = [];
   brandImagesLoading = false;
   uploadingImage = false;
@@ -199,12 +199,12 @@ export class Perfumes implements OnInit {
     this.selectedCompanyId = null;
     this.costPrice = 0;
     this.brandImages = [];
-    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex' };
+    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
     this.form = {
       brand_id: undefined, full_ml: 0, current_ml: 0,
       bought_from: '', price_original: 0,
       price_5ml: 0, price_10ml: 0, price_30ml: 0,
-      description: '', notes: '', gender: 'unisex',
+      description: '', notes: '', gender: 'unisex', unisex_lean: null,
       is_published: false,
       sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
     };
@@ -221,7 +221,7 @@ export class Perfumes implements OnInit {
       bought_from: p.bought_from, price_original: p.price_original,
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
       description: p.description || '', notes: p.notes || '',
-      gender: p.gender || 'unisex', is_published: p.is_published || false,
+      gender: p.gender || 'unisex', unisex_lean: p.unisex_lean ?? null, is_published: p.is_published || false,
       is_summer: p.is_summer || false, is_winter: p.is_winter || false,
       sale_price_5ml: p.sale_price_5ml ?? null, sale_price_10ml: p.sale_price_10ml ?? null, sale_price_30ml: p.sale_price_30ml ?? null,
     };
@@ -230,6 +230,7 @@ export class Perfumes implements OnInit {
       full_bottle_price: brand?.full_bottle_price ?? null,
       full_bottle_sale_price: brand?.full_bottle_sale_price ?? null,
       gender: brand?.gender || 'unisex',
+      unisex_lean: brand?.unisex_lean ?? null,
     };
     this.showModal = true;
     await this.loadBrandImages(p.brand_id);
@@ -332,6 +333,14 @@ export class Perfumes implements OnInit {
   startInlineEdit(p: Perfume) {
     if (p.bottles_available > 1) return;
     this.editingRowId = p.id!;
+  }
+
+  onGenderChange(gender: string) {
+    if (gender !== 'unisex') this.form.unisex_lean = null;
+  }
+
+  onBrandGenderChange(gender: string) {
+    if (gender !== 'unisex') this.brandForm.unisex_lean = null;
   }
 
   async saveInlineEdit(p: Perfume, field: string, value: any) {
