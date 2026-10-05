@@ -420,11 +420,14 @@ export class Orders implements OnInit {
 
   // perfumes.full_ml is the SUM of every bottle ever bought for that perfume
   // (maintained by add_perfume_bottle), not one bottle's size. Selling "a full
-  // bottle" needs one bottle's real size, so use the most recently bought one.
+  // bottle" needs one bottle's real size — prefer the most recently bought bottle
+  // that still has stock (so a sold-out restock of an unusual size doesn't get
+  // shown), falling back to the most recent bottle overall if none have stock.
   nominalBottleMl(p: Perfume): number {
     if (!p.bottles?.length) return p.full_ml;
-    const latest = p.bottles.reduce((a, b) => (a.created_at > b.created_at ? a : b));
-    return latest.full_ml;
+    const inStock = p.bottles.filter(b => b.current_ml > 0);
+    const pool = inStock.length ? inStock : p.bottles;
+    return pool.reduce((a, b) => (a.created_at > b.created_at ? a : b)).full_ml;
   }
 
   getItemPrice(item: { perfume_id: number | null; decant_size_ml: number; is_full_bottle: boolean; is_refundable_bottle: boolean; bottle_sale_price: number; bottle_cost_price: number }): number {
