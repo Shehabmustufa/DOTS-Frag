@@ -171,7 +171,7 @@ export class Perfumes implements OnInit {
     this.loadingPerfumeOrders = true;
     this.cdr.markForCheck();
     try {
-      this.perfumeOrders = await this.orderSvc.getByPerfume(p.id!);
+      this.perfumeOrders = await this.orderSvc.getByPerfume(p.id!, p.brand_id);
     } catch (e: any) {
       this.perfumeOrdersError = e?.message || 'Failed to load orders';
     } finally {
@@ -191,7 +191,9 @@ export class Perfumes implements OnInit {
     this.router.navigate(['/orders'], { queryParams: { orderId: o.id } });
   }
 
-  /** Revenue for one line — refundable bottles count only their profit (sale − cost), never the full sale price. */
+  /** Revenue for one line — refundable (full) bottles count only their profit (sale − cost),
+   *  decant lines count their full price. is_full_bottle is dead weight in this app's orders
+   *  (full bottles are always sold as refundable-bottle lines) but kept here just in case. */
   private getItemRevenue(item: OrderItem): number {
     if (item.is_refundable_bottle) {
       return (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
@@ -205,41 +207,49 @@ export class Perfumes implements OnInit {
     return price * item.quantity;
   }
 
-  /** Money actually spent on this perfume across the loaded orders — same per-order discount
-   *  formula as the Orders page, cancelled orders excluded since nothing was ultimately paid. */
-  get perfumeMoneySummary(): { totalSpent: number } {
+  /** Total money profited on this perfume across the loaded orders — decant lines at full
+   *  price, refundable-bottle lines at profit only, same per-order discount formula as the
+   *  Orders page. An order with several refundable-bottle lines sums all of their profits.
+   *  Cancelled orders are excluded since nothing was ultimately paid. */
+  get perfumeMoneySummary(): { totalProfited: number } {
     let total = 0;
     for (const o of this.perfumeOrders) {
       if (o.order_status === 'cancelled') continue;
       const subtotal = (o.order_items || []).reduce((sum, item) => sum + this.getItemRevenue(item), 0);
       total += Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
     }
-    return { totalSpent: total };
+    return { totalProfited: total };
   }
 
-  /** ml drawn from decants vs. cut from bottles across the loaded orders — decant lines only.
-   *  Full-bottle sales are counted separately as whole units (they're not "ml used for
-   *  decanting"), which is why they're excluded here regardless of migration date — their
-   *  quantity was always stored, so fullBottlesSold covers every order, old and new.
-   *  Cancelled orders are excluded from all three since cancelling returns the stock. */
-  get perfumeMlSummary(): { fromBottles: number; fromDecants: number; total: number; hasUntracked: boolean; fullBottlesSold: number } {
-    let fromBottles = 0, fromDecants = 0, hasUntracked = false, fullBottlesSold = 0;
+  /** ml pulled from pre-made decant stock — decant lines only. Refundable-bottle lines never
+   *  touch decant ml (deduct_order_inventory skips them entirely), so they're excluded here
+   *  rather than counted as "untracked". hasUntracked only flags real decant lines placed
+   *  before the ml-tracking migration. Cancelled orders are excluded (stock was returned). */
+  get perfumeDecantSummary(): { totalMl: number; hasUntracked: boolean } {
+    let totalMl = 0, hasUntracked = false;
     for (const o of this.perfumeOrders) {
       if (o.order_status === 'cancelled') continue;
       for (const item of o.order_items || []) {
-        if (item.is_full_bottle) {
-          fullBottlesSold += item.quantity;
-          continue;
-        }
-        if (item.ml_from_decants == null && item.ml_from_bottles == null) {
-          hasUntracked = true;
-          continue;
-        }
-        fromBottles += Number(item.ml_from_bottles) || 0;
-        fromDecants += Number(item.ml_from_decants) || 0;
+        if (item.is_refundable_bottle) continue;
+        if (item.ml_from_decants == null) { hasUntracked = true; continue; }
+        totalMl += Number(item.ml_from_decants) || 0;
       }
     }
-    return { fromBottles, fromDecants, total: fromBottles + fromDecants, hasUntracked, fullBottlesSold };
+    return { totalMl, hasUntracked };
+  }
+
+  /** Whole bottles sold — full bottles are sold as refundable-bottle order lines in this app,
+   *  so this counts quantity on those lines (never is_full_bottle). Works for every order
+   *  regardless of migration date, since quantity was always stored. Cancelled excluded. */
+  get perfumeBottlesSoldSummary(): { count: number } {
+    let count = 0;
+    for (const o of this.perfumeOrders) {
+      if (o.order_status === 'cancelled') continue;
+      for (const item of o.order_items || []) {
+        if (item.is_refundable_bottle) count += item.quantity;
+      }
+    }
+    return { count };
   }
 
   // --- Bottle edit / delete (RPC-based) ---

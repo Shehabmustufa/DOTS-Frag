@@ -320,7 +320,7 @@
 <!-- Orders-for-perfume Modal -->
 <div *ngIf="showOrdersModal">
   <div class="modal-backdrop-custom" (click)="closeOrdersModal()"></div>
-  <div class="modal-panel">
+  <div class="modal-panel modal-panel-xl">
     <div class="modal-panel-header">
       <h5>Orders — {{ ordersModalPerfume?.brand?.name || 'Perfume' }}</h5>
       <button class="btn-close" (click)="closeOrdersModal()"></button>
@@ -336,24 +336,20 @@
       </div>
       <div class="orders-modal-stats" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
         <div class="stat-card stat-money">
-          <span class="stat-label">Total Spent</span>
-          <span class="stat-value">{{ perfumeMoneySummary.totalSpent | currency:'EGP':'symbol':'1.0-0' }}</span>
+          <span class="stat-label">Total Money Profited</span>
+          <span class="stat-value">{{ perfumeMoneySummary.totalProfited | currency:'EGP':'symbol':'1.0-0' }}</span>
         </div>
         <div class="stat-card stat-decants">
-          <span class="stat-label">ml From Decants</span>
-          <span class="stat-value">{{ perfumeMlSummary.fromDecants }} ml</span>
-        </div>
-        <div class="stat-card stat-bottles">
-          <span class="stat-label">ml From Bottles</span>
-          <span class="stat-value">{{ perfumeMlSummary.fromBottles }} ml</span>
+          <span class="stat-label">Total Decant Deducted</span>
+          <span class="stat-value">{{ perfumeDecantSummary.totalMl }} ml</span>
         </div>
         <div class="stat-card stat-full-bottles">
-          <span class="stat-label">Full Bottles Sold</span>
-          <span class="stat-value">{{ perfumeMlSummary.fullBottlesSold }}</span>
+          <span class="stat-label">Total Bottles Sold</span>
+          <span class="stat-value">{{ perfumeBottlesSoldSummary.count }}</span>
         </div>
       </div>
-      <p *ngIf="!loadingPerfumeOrders && perfumeMlSummary.hasUntracked" class="text-muted mb-2" style="font-size:12px;">
-        Cancelled orders and orders placed before ml tracking started aren't included in the totals above.
+      <p *ngIf="!loadingPerfumeOrders && perfumeDecantSummary.hasUntracked" class="text-muted mb-2" style="font-size:12px;">
+        Cancelled orders and decant orders placed before ml tracking started aren't included in the decant total above.
       </p>
       <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
         <thead>
@@ -374,7 +370,9 @@
             </td>
             <td>
               <span *ngFor="let item of o.order_items">
-                {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}<br>
+                <ng-container *ngIf="item.is_refundable_bottle">{{ item.brand?.name || 'Unknown' }} — Refundable Bottle</ng-container>
+                <ng-container *ngIf="!item.is_refundable_bottle">{{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }}</ng-container>
+                × {{ item.quantity }}<br>
               </span>
             </td>
           </tr>
