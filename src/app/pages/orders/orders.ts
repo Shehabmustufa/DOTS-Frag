@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { OrderService, Order, OrderItem } from '../../core/services/order';
 import { CustomerService, Customer } from '../../core/services/customer';
 import { PerfumeService, Perfume } from '../../core/services/perfume';
@@ -124,10 +125,36 @@ export class Orders implements OnInit {
     private costSvc: CostService,
     private decantSvc: DecantService,
     private packagingSvc: PackagingService,
+    private route: ActivatedRoute,
+    private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() { this.load(); }
+  async ngOnInit() {
+    await this.load();
+    const orderIdParam = this.route.snapshot.queryParamMap.get('orderId');
+    if (orderIdParam) this.focusOrder(Number(orderIdParam));
+  }
+
+  /** Reveal and expand a specific order, e.g. when deep-linked from the Perfumes page. */
+  focusOrder(orderId: number) {
+    const order = this.orders.find(o => o.id === orderId);
+    if (!order) return;
+    this.clearFilters();
+    const d = new Date(order.created_at!);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const group = this.dayGroups.find(g => g.date === key);
+    if (group) {
+      const idx = group.orders.findIndex(o => o.id === orderId);
+      if (idx >= 0) group.page = Math.floor(idx / this.pageSize) + 1;
+    }
+    this.expandedOrderId = orderId;
+    this.cdr.markForCheck();
+    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    setTimeout(() => {
+      document.getElementById(`order-row-${orderId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }
 
   async load() {
     this.error = '';

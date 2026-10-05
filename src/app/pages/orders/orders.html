@@ -95,7 +95,7 @@
           </thead>
           <tbody>
             <ng-container *ngFor="let o of getPagedOrders(group)">
-              <tr (click)="toggleExpand(o.id!)" style="cursor:pointer"
+              <tr [id]="'order-row-' + o.id" (click)="toggleExpand(o.id!)" style="cursor:pointer"
                   [class.gift-row]="o.is_gift && !isOwnerOrder(o)"
                   [class.discount-row]="!o.is_gift && !isOwnerOrder(o) && (o.discount_percentage || 0) > 0"
                   [class.cancelled-row]="o.order_status === 'cancelled'"

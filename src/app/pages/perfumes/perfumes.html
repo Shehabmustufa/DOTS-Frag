@@ -93,6 +93,7 @@
               <span *ngIf="!p.is_published" class="badge bg-light text-muted">Draft</span>
             </td>
             <td (click)="$event.stopPropagation()">
+              <button class="btn btn-sm btn-outline-info me-1" title="View orders with this perfume" (click)="openOrdersForPerfume(p)">🧾</button>
               <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(p)">✎</button>
               <button class="btn btn-sm btn-outline-danger" (click)="remove(p.id!)">🗑</button>
             </td>
@@ -102,17 +103,17 @@
             <td colspan="12">
               <div class="bottles-list">
                 <div class="bottles-header">Individual Bottles</div>
-                <div *ngFor="let b of expandedBottles" class="bottle-item">
+                <div *ngFor="let b of expandedBottles" class="bottle-item" style="cursor:pointer" title="View orders with this perfume" (click)="openOrdersForPerfume(p)">
                   <span class="bottle-date">{{ b.created_at | date:'mediumDate' }}</span>
-                  <span class="bottle-ml" *ngIf="editingBottleId !== b.id" (click)="startBottleEdit(b)">
+                  <span class="bottle-ml" *ngIf="editingBottleId !== b.id" (click)="$event.stopPropagation(); startBottleEdit(b)">
                     {{ b.current_ml }} / {{ b.full_ml }} ml
                   </span>
                   <input *ngIf="editingBottleId === b.id" type="number" [(ngModel)]="b.current_ml"
-                    (blur)="saveBottleMl(b)" class="form-control form-control-sm bottle-input" autofocus>
+                    (blur)="saveBottleMl(b)" (click)="$event.stopPropagation()" class="form-control form-control-sm bottle-input" autofocus>
                   <div class="bottle-bar">
                     <div class="bottle-bar-fill" [style.width.%]="getBottlePercentage(b)"></div>
                   </div>
-                  <button class="btn btn-sm btn-outline-danger" (click)="removeBottle(p, b)">🗑</button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="$event.stopPropagation(); removeBottle(p, b)">🗑</button>
                 </div>
                 <div *ngIf="expandedBottles.length === 0" class="text-muted text-center py-2">
                   No bottle records found.
@@ -312,6 +313,52 @@
     <div class="modal-panel-footer">
       <button class="btn btn-secondary me-2" (click)="showModal=false; editingRowId=null">Cancel</button>
       <button class="btn btn-primary" (click)="save()">{{ isEdit ? 'Update' : 'Add Bottle' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Orders-for-perfume Modal -->
+<div *ngIf="showOrdersModal">
+  <div class="modal-backdrop-custom" (click)="closeOrdersModal()"></div>
+  <div class="modal-panel">
+    <div class="modal-panel-header">
+      <h5>Orders — {{ ordersModalPerfume?.brand?.name || 'Perfume' }}</h5>
+      <button class="btn-close" (click)="closeOrdersModal()"></button>
+    </div>
+    <div class="modal-panel-body">
+      <div *ngIf="loadingPerfumeOrders" class="loading-container">
+        <div class="spinner"></div>
+        <span>Loading orders...</span>
+      </div>
+      <div class="alert alert-danger" *ngIf="perfumeOrdersError">{{ perfumeOrdersError }}</div>
+      <div *ngIf="!loadingPerfumeOrders && !perfumeOrdersError && perfumeOrders.length === 0" class="text-center text-muted py-4">
+        No orders have this perfume yet.
+      </div>
+      <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
+        <thead>
+          <tr><th>Order #</th><th>Customer</th><th>Date</th><th>Status</th><th>This perfume</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let o of perfumeOrders" style="cursor:pointer" (click)="openFullOrder(o)">
+            <td><strong>#{{ o.id }}</strong></td>
+            <td>{{ o.customer?.name }}<br><small class="text-muted">{{ o.customer?.mobile_number }}</small></td>
+            <td>{{ o.created_at | date:'mediumDate' }}</td>
+            <td>
+              <span class="badge" [ngClass]="{
+                'bg-danger': o.order_status === 'cancelled',
+                'bg-success': o.order_status === 'delivered',
+                'bg-info text-dark': o.order_status === 'delivery',
+                'bg-secondary': o.order_status === 'placed'
+              }">{{ o.order_status }}</span>
+            </td>
+            <td>
+              <span *ngFor="let item of o.order_items">
+                {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}<br>
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

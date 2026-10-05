@@ -69,6 +69,19 @@ export class OrderService {
     return data as Order[];
   }
 
+  /** All orders that list a given perfume (full bottle or decant line), newest first.
+   *  Filters server-side via an inner join on order_items, so only matching rows
+   *  come back over the wire instead of the whole order table. */
+  async getByPerfume(perfumeId: number): Promise<Order[]> {
+    const { data, error } = await this.supa.client
+      .from('orders')
+      .select(`*, customer:customers(name, mobile_number), order_items!inner(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)))`)
+      .eq('order_items.perfume_id', perfumeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Order[];
+  }
+
   async getGiftCustomerIds(): Promise<Set<number>> {
     const { data, error } = await this.supa.client
       .from('orders')
