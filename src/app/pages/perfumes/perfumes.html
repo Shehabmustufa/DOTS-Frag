@@ -347,6 +347,10 @@
           <span class="stat-label">ml From Bottles</span>
           <span class="stat-value">{{ perfumeMlSummary.fromBottles }} ml</span>
         </div>
+        <div class="stat-card stat-full-bottles">
+          <span class="stat-label">Full Bottles Sold</span>
+          <span class="stat-value">{{ perfumeMlSummary.fullBottlesSold }}</span>
+        </div>
       </div>
       <p *ngIf="!loadingPerfumeOrders && perfumeMlSummary.hasUntracked" class="text-muted mb-2" style="font-size:12px;">
         Cancelled orders and orders placed before ml tracking started aren't included in the totals above.
