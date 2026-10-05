@@ -334,6 +334,23 @@
       <div *ngIf="!loadingPerfumeOrders && !perfumeOrdersError && perfumeOrders.length === 0" class="text-center text-muted py-4">
         No orders have this perfume yet.
       </div>
+      <div class="orders-modal-stats" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
+        <div class="stat-card stat-money">
+          <span class="stat-label">Total Spent</span>
+          <span class="stat-value">{{ perfumeMoneySummary.totalSpent | currency:'EGP':'symbol':'1.0-0' }}</span>
+        </div>
+        <div class="stat-card stat-decants">
+          <span class="stat-label">ml From Decants</span>
+          <span class="stat-value">{{ perfumeMlSummary.fromDecants }} ml</span>
+        </div>
+        <div class="stat-card stat-bottles">
+          <span class="stat-label">ml From Bottles</span>
+          <span class="stat-value">{{ perfumeMlSummary.fromBottles }} ml</span>
+        </div>
+      </div>
+      <p *ngIf="!loadingPerfumeOrders && perfumeMlSummary.hasUntracked" class="text-muted mb-2" style="font-size:12px;">
+        Cancelled orders and orders placed before ml tracking started aren't included in the totals above.
+      </p>
       <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
         <thead>
           <tr><th>Order #</th><th>Customer</th><th>Date</th><th>Status</th><th>This perfume</th></tr>

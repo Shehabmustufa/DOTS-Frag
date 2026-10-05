@@ -12,6 +12,10 @@ export interface OrderItem {
   is_refundable_bottle?: boolean;
   bottle_sale_price?: number;
   bottle_cost_price?: number;
+  /** How much of this line's ml was drawn from pre-made decant stock vs. cut from a bottle.
+   *  NULL on both for orders placed before this split started being tracked. */
+  ml_from_decants?: number | null;
+  ml_from_bottles?: number | null;
   perfume?: { price_5ml: number; price_10ml: number; price_30ml: number; price_original: number; full_ml: number; brand: { name: string } };
   brand?: { name: string; company: { name: string } };
 }
