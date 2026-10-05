@@ -348,9 +348,6 @@
           <span class="stat-value">{{ perfumeBottlesSoldSummary.count }}</span>
         </div>
       </div>
-      <p *ngIf="!loadingPerfumeOrders && perfumeDecantSummary.hasUntracked" class="text-muted mb-2" style="font-size:12px;">
-        Cancelled orders and decant orders placed before ml tracking started aren't included in the decant total above.
-      </p>
       <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
         <thead>
           <tr><th>Order #</th><th>Customer</th><th>Date</th><th>Status</th><th>This perfume</th></tr>
