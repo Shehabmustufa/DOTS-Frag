@@ -217,13 +217,20 @@ export class Perfumes implements OnInit {
     return { totalSpent: total };
   }
 
-  /** ml drawn from decants vs. cut from bottles across the loaded orders — cancelled orders
-   *  excluded since cancelling returns the stock, netting zero actual usage. */
-  get perfumeMlSummary(): { fromBottles: number; fromDecants: number; total: number; hasUntracked: boolean } {
-    let fromBottles = 0, fromDecants = 0, hasUntracked = false;
+  /** ml drawn from decants vs. cut from bottles across the loaded orders — decant lines only.
+   *  Full-bottle sales are counted separately as whole units (they're not "ml used for
+   *  decanting"), which is why they're excluded here regardless of migration date — their
+   *  quantity was always stored, so fullBottlesSold covers every order, old and new.
+   *  Cancelled orders are excluded from all three since cancelling returns the stock. */
+  get perfumeMlSummary(): { fromBottles: number; fromDecants: number; total: number; hasUntracked: boolean; fullBottlesSold: number } {
+    let fromBottles = 0, fromDecants = 0, hasUntracked = false, fullBottlesSold = 0;
     for (const o of this.perfumeOrders) {
       if (o.order_status === 'cancelled') continue;
       for (const item of o.order_items || []) {
+        if (item.is_full_bottle) {
+          fullBottlesSold += item.quantity;
+          continue;
+        }
         if (item.ml_from_decants == null && item.ml_from_bottles == null) {
           hasUntracked = true;
           continue;
@@ -232,7 +239,7 @@ export class Perfumes implements OnInit {
         fromDecants += Number(item.ml_from_decants) || 0;
       }
     }
-    return { fromBottles, fromDecants, total: fromBottles + fromDecants, hasUntracked };
+    return { fromBottles, fromDecants, total: fromBottles + fromDecants, hasUntracked, fullBottlesSold };
   }
 
   // --- Bottle edit / delete (RPC-based) ---
