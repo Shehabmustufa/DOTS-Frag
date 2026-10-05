@@ -73,14 +73,16 @@ export class OrderService {
     return data as Order[];
   }
 
-  /** All orders that list a given perfume (full bottle or decant line), newest first.
-   *  Filters server-side via an inner join on order_items, so only matching rows
-   *  come back over the wire instead of the whole order table. */
-  async getByPerfume(perfumeId: number): Promise<Order[]> {
+  /** All orders that list a given perfume, newest first — decant/full-bottle lines
+   *  (order_items.perfume_id) AND refundable-bottle lines sold under that perfume's
+   *  brand (order_items.brand_id), since full bottles are sold as refundable-bottle
+   *  items in this app, not via the is_full_bottle flag. Filters server-side via an
+   *  inner join + OR on order_items, so only matching rows come back over the wire. */
+  async getByPerfume(perfumeId: number, brandId: number): Promise<Order[]> {
     const { data, error } = await this.supa.client
       .from('orders')
-      .select(`*, customer:customers(name, mobile_number), order_items!inner(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)))`)
-      .eq('order_items.perfume_id', perfumeId)
+      .select(`*, customer:customers(name, mobile_number), order_items!inner(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name)))`)
+      .or(`perfume_id.eq.${perfumeId},brand_id.eq.${brandId}`, { foreignTable: 'order_items' })
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data as Order[];
