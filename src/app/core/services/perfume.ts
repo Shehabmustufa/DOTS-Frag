@@ -29,6 +29,9 @@ export interface Perfume {
   sale_price_10ml?: number | null;
   sale_price_30ml?: number | null;
   created_at?: string;
+  /** Lean per-bottle rows (just enough to find the most recently bought bottle's
+   *  real size) — not the full editable list the Perfumes page expand uses, see getBottles(). */
+  bottles?: { full_ml: number; created_at: string }[];
 }
 
 export interface PerfumeBottle {
@@ -48,7 +51,7 @@ export class PerfumeService {
   async getAll(): Promise<Perfume[]> {
     const { data, error } = await this.supa.client
       .from(this.table)
-      .select('*, brand:brands(name, company_id, company:companies(name))')
+      .select('*, brand:brands(name, company_id, company:companies(name)), bottles:perfume_bottles(full_ml, created_at)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data as Perfume[]) || [];
