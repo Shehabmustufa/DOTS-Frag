@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { PerfumeService, Perfume, PerfumeBottle } from '../../core/services/perfume';
 import { BrandService, Brand, BrandImage, MAX_BRAND_IMAGES } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
-import { OrderService, Order } from '../../core/services/order';
+import { OrderService, Order, OrderItem } from '../../core/services/order';
 
 @Component({
   selector: 'app-perfumes',
@@ -189,6 +189,50 @@ export class Perfumes implements OnInit {
   /** Jump to the Orders page with this order expanded in place. */
   openFullOrder(o: Order) {
     this.router.navigate(['/orders'], { queryParams: { orderId: o.id } });
+  }
+
+  /** Revenue for one line — refundable bottles count only their profit (sale − cost), never the full sale price. */
+  private getItemRevenue(item: OrderItem): number {
+    if (item.is_refundable_bottle) {
+      return (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
+    }
+    if (!item.perfume) return 0;
+    let price = 0;
+    if (item.is_full_bottle) price = Number(item.perfume.price_original);
+    else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
+    else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
+    else if (item.decant_size_ml === 30 || item.decant_size_ml === 35) price = Number(item.perfume.price_30ml);
+    return price * item.quantity;
+  }
+
+  /** Money actually spent on this perfume across the loaded orders — same per-order discount
+   *  formula as the Orders page, cancelled orders excluded since nothing was ultimately paid. */
+  get perfumeMoneySummary(): { totalSpent: number } {
+    let total = 0;
+    for (const o of this.perfumeOrders) {
+      if (o.order_status === 'cancelled') continue;
+      const subtotal = (o.order_items || []).reduce((sum, item) => sum + this.getItemRevenue(item), 0);
+      total += Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
+    }
+    return { totalSpent: total };
+  }
+
+  /** ml drawn from decants vs. cut from bottles across the loaded orders — cancelled orders
+   *  excluded since cancelling returns the stock, netting zero actual usage. */
+  get perfumeMlSummary(): { fromBottles: number; fromDecants: number; total: number; hasUntracked: boolean } {
+    let fromBottles = 0, fromDecants = 0, hasUntracked = false;
+    for (const o of this.perfumeOrders) {
+      if (o.order_status === 'cancelled') continue;
+      for (const item of o.order_items || []) {
+        if (item.ml_from_decants == null && item.ml_from_bottles == null) {
+          hasUntracked = true;
+          continue;
+        }
+        fromBottles += Number(item.ml_from_bottles) || 0;
+        fromDecants += Number(item.ml_from_decants) || 0;
+      }
+    }
+    return { fromBottles, fromDecants, total: fromBottles + fromDecants, hasUntracked };
   }
 
   // --- Bottle edit / delete (RPC-based) ---
