@@ -221,21 +221,21 @@ export class Perfumes implements OnInit {
     return { totalProfited: total };
   }
 
-  /** ml pulled from pre-made decant stock — decant lines only. Refundable-bottle lines never
-   *  touch decant ml (deduct_order_inventory skips them entirely), so they're excluded here
-   *  rather than counted as "untracked". hasUntracked only flags real decant lines placed
-   *  before the ml-tracking migration. Cancelled orders are excluded (stock was returned). */
-  get perfumeDecantSummary(): { totalMl: number; hasUntracked: boolean } {
-    let totalMl = 0, hasUntracked = false;
+  /** Total ml deducted by decant sales of this perfume — decant_size_ml × quantity per line,
+   *  summed directly. Refundable-bottle and (unused) full-bottle lines are excluded since
+   *  they aren't decant sales. Needs no migration/tracking column — decant_size_ml and
+   *  quantity have always been on every order, so this works for every order ever placed.
+   *  Cancelled orders are excluded since cancelling returns the stock. */
+  get perfumeDecantSummary(): { totalMl: number } {
+    let totalMl = 0;
     for (const o of this.perfumeOrders) {
       if (o.order_status === 'cancelled') continue;
       for (const item of o.order_items || []) {
-        if (item.is_refundable_bottle) continue;
-        if (item.ml_from_decants == null) { hasUntracked = true; continue; }
-        totalMl += Number(item.ml_from_decants) || 0;
+        if (item.is_refundable_bottle || item.is_full_bottle) continue;
+        totalMl += (Number(item.decant_size_ml) || 0) * (item.quantity || 0);
       }
     }
-    return { totalMl, hasUntracked };
+    return { totalMl };
   }
 
   /** Whole bottles sold — full bottles are sold as refundable-bottle order lines in this app,
