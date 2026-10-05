@@ -1,9 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { PerfumeService, Perfume, PerfumeBottle } from '../../core/services/perfume';
 import { BrandService, Brand, BrandImage, MAX_BRAND_IMAGES } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
+import { OrderService, Order } from '../../core/services/order';
 
 @Component({
   selector: 'app-perfumes',
@@ -40,6 +42,13 @@ export class Perfumes implements OnInit {
   expandedBottles: PerfumeBottle[] = [];
   editingBottleId: number | null = null;
 
+  // --- Orders-for-perfume modal ---
+  showOrdersModal = false;
+  ordersModalPerfume: Perfume | null = null;
+  perfumeOrders: Order[] = [];
+  loadingPerfumeOrders = false;
+  perfumeOrdersError = '';
+
   form: Partial<Perfume> = {
     brand_id: undefined, full_ml: 0, current_ml: 0,
     bought_from: '', price_original: 0,
@@ -60,6 +69,8 @@ export class Perfumes implements OnInit {
     private svc: PerfumeService,
     private brandSvc: BrandService,
     private companySvc: CompanyService,
+    private orderSvc: OrderService,
+    private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -147,6 +158,37 @@ export class Perfumes implements OnInit {
       this.error = e?.message || 'Failed to load bottles';
       this.cdr.markForCheck();
     }
+  }
+
+  // --- Orders for this perfume (lazy-loaded on demand, not on page load) ---
+
+  async openOrdersForPerfume(p: Perfume, event?: Event) {
+    event?.stopPropagation();
+    this.ordersModalPerfume = p;
+    this.showOrdersModal = true;
+    this.perfumeOrders = [];
+    this.perfumeOrdersError = '';
+    this.loadingPerfumeOrders = true;
+    this.cdr.markForCheck();
+    try {
+      this.perfumeOrders = await this.orderSvc.getByPerfume(p.id!);
+    } catch (e: any) {
+      this.perfumeOrdersError = e?.message || 'Failed to load orders';
+    } finally {
+      this.loadingPerfumeOrders = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  closeOrdersModal() {
+    this.showOrdersModal = false;
+    this.ordersModalPerfume = null;
+    this.perfumeOrders = [];
+  }
+
+  /** Jump to the Orders page with this order expanded in place. */
+  openFullOrder(o: Order) {
+    this.router.navigate(['/orders'], { queryParams: { orderId: o.id } });
   }
 
   // --- Bottle edit / delete (RPC-based) ---
