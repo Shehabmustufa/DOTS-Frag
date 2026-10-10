@@ -16,6 +16,11 @@ export interface OrderItem {
    *  NULL on both for orders placed before this split started being tracked. */
   ml_from_decants?: number | null;
   ml_from_bottles?: number | null;
+  /** Price per unit for decant/full-bottle lines, stamped from the perfume's current price
+   *  by a DB trigger when the row is inserted — so later price changes never alter what a
+   *  past order is shown to have cost. Not used for refundable-bottle lines (those use
+   *  bottle_sale_price/bottle_cost_price instead). */
+  unit_sale_price?: number | null;
   perfume?: { price_5ml: number; price_10ml: number; price_30ml: number; price_original: number; full_ml: number; brand: { name: string } };
   brand?: { name: string; company: { name: string } };
 }

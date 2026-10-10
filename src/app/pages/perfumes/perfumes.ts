@@ -198,13 +198,7 @@ export class Perfumes implements OnInit {
     if (item.is_refundable_bottle) {
       return (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
     }
-    if (!item.perfume) return 0;
-    let price = 0;
-    if (item.is_full_bottle) price = Number(item.perfume.price_original);
-    else if (item.decant_size_ml === 5) price = Number(item.perfume.price_5ml);
-    else if (item.decant_size_ml === 10) price = Number(item.perfume.price_10ml);
-    else if (item.decant_size_ml === 30 || item.decant_size_ml === 35) price = Number(item.perfume.price_30ml);
-    return price * item.quantity;
+    return Number(item.unit_sale_price) * item.quantity;
   }
 
   /** Total money profited on this perfume across the loaded orders — decant lines at full
