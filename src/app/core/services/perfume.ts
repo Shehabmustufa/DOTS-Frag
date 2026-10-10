@@ -41,6 +41,9 @@ export interface PerfumeBottle {
   current_ml: number;
   cost_id?: number | null;
   created_at?: string;
+  /** The purchase cost row this bottle is linked to, if any — joined in by getBottles()
+   *  so the UI can prefill a duplicate bottle's cost price without a second query. */
+  cost?: { amount: number } | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -120,7 +123,7 @@ export class PerfumeService {
   async getBottles(perfumeId: number): Promise<PerfumeBottle[]> {
     const { data, error } = await this.supa.client
       .from('perfume_bottles')
-      .select('*')
+      .select('*, cost:costs(amount)')
       .eq('perfume_id', perfumeId)
       .order('created_at', { ascending: false });
     if (error) throw error;

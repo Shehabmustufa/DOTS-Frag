@@ -256,6 +256,7 @@ export class Perfumes implements OnInit {
     this.editingBottleId = null;
     try {
       await this.svc.updateBottleMl(b.id!, b.current_ml);
+      await this.syncPerfumeAggregate(b.perfume_id);
       await this.load();
       if (this.expandedPerfumeId) {
         this.expandedBottles = await this.svc.getBottles(this.expandedPerfumeId);
@@ -271,6 +272,7 @@ export class Perfumes implements OnInit {
     if (!confirm('Delete this bottle? Its cost will also be removed.')) return;
     try {
       await this.svc.deleteBottle(b.id!);
+      await this.syncPerfumeAggregate(p.id!);
       await this.load();
       if (this.expandedPerfumeId) {
         const remaining = await this.svc.getBottles(this.expandedPerfumeId);
@@ -286,6 +288,70 @@ export class Perfumes implements OnInit {
       this.error = e?.message || 'Delete failed';
       this.cdr.markForCheck();
     }
+  }
+
+  /** The bottle currently being drawn from, for routing an aggregate ml edit down to one
+   *  bottle — same rule as Orders' nominalBottleMl: prefer the most recently added bottle
+   *  that still has stock, falling back to the most recently added bottle overall. */
+  private pickActiveBottle(bottles: PerfumeBottle[]): PerfumeBottle | null {
+    if (!bottles.length) return null;
+    const inStock = bottles.filter(b => b.current_ml > 0);
+    const pool = inStock.length ? inStock : bottles;
+    return pool.reduce((a, b) => ((a.created_at || '') > (b.created_at || '') ? a : b));
+  }
+
+  /** Recompute perfumes.current_ml as the sum of its bottles' current_ml and persist it,
+   *  so the aggregate shown on the main row always matches bottle reality — whichever side
+   *  (the aggregate cell or a bottle's own row) was just edited. */
+  private async syncPerfumeAggregate(perfumeId: number): Promise<void> {
+    const bottles = await this.svc.getBottles(perfumeId);
+    const sum = bottles.reduce((s, b) => s + Number(b.current_ml), 0);
+    await this.svc.update(perfumeId, { current_ml: sum });
+  }
+
+  // --- Duplicate bottle: prefill the Add modal from an existing bottle's data ---
+
+  /** Main-row duplicate button: no specific bottle is in view, so clone whichever bottle
+   *  was added last (getBottles() sorts newest first, so bottles[0] is "its last entry"). */
+  async duplicateLastBottle(p: Perfume, event?: Event) {
+    event?.stopPropagation();
+    try {
+      const bottles = await this.svc.getBottles(p.id!);
+      this.openDuplicateForm(p, bottles[0] || null);
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to load bottle';
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Expanded-list duplicate button: clone this exact bottle. */
+  duplicateBottle(p: Perfume, b: PerfumeBottle, event?: Event) {
+    event?.stopPropagation();
+    this.openDuplicateForm(p, b);
+  }
+
+  /** Opens the same Add-bottle modal used for a brand-new perfume, but pre-filled with the
+   *  source bottle's size/cost and the perfume's existing prices/bought_from — so the only
+   *  thing left to do is review and click Add Bottle. Goes through the normal save() ->
+   *  addBottle() RPC path, same as adding a bottle any other way. */
+  private openDuplicateForm(p: Perfume, source: PerfumeBottle | null) {
+    this.isEdit = false;
+    this.editId = null;
+    const brand = this.brands.find(b => b.id === p.brand_id);
+    this.selectedCompanyId = brand?.company_id || null;
+    this.costPrice = Number(source?.cost?.amount) || 0;
+    this.brandImages = [];
+    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
+    this.form = {
+      brand_id: p.brand_id, full_ml: source?.full_ml ?? p.full_ml, current_ml: source?.full_ml ?? p.full_ml,
+      bought_from: p.bought_from || '', price_original: p.price_original,
+      price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
+      description: '', notes: '', gender: 'unisex', unisex_lean: null,
+      is_published: false, is_summer: false, is_winter: false,
+      sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
+    };
+    this.showModal = true;
+    this.cdr.markForCheck();
   }
 
   // --- Add / Edit modal ---
@@ -428,7 +494,6 @@ export class Perfumes implements OnInit {
   // --- Inline edit for single-bottle perfumes ---
 
   startInlineEdit(p: Perfume) {
-    if (p.bottles_available > 1) return;
     this.editingRowId = p.id!;
   }
 
@@ -448,10 +513,25 @@ export class Perfumes implements OnInit {
     try {
       if (field === 'current_ml') {
         const bottles = await this.svc.getBottles(p.id!);
-        if (bottles.length === 1) {
-          await this.svc.updateBottleMl(bottles[0].id!, Number(value));
-        } else {
+        if (bottles.length === 0) {
           await this.svc.update(p.id!, { current_ml: Number(value) });
+        } else if (bottles.length === 1) {
+          await this.svc.updateBottleMl(bottles[0].id!, Number(value));
+          await this.syncPerfumeAggregate(p.id!);
+        } else {
+          // Multiple bottles: route the change to whichever bottle is actively being
+          // drawn from, rather than spreading it evenly or overwriting the aggregate
+          // directly — e.g. a 100ml (full) + 20ml (opened) perfume showing 120ml total:
+          // typing a new total here adjusts the 20ml bottle by the difference, not the 100ml one.
+          const oldSum = bottles.reduce((s, b) => s + Number(b.current_ml), 0);
+          const delta = Number(value) - oldSum;
+          const target = this.pickActiveBottle(bottles)!;
+          const newMl = Math.max(0, Math.min(target.full_ml, Number(target.current_ml) + delta));
+          await this.svc.updateBottleMl(target.id!, newMl);
+          await this.syncPerfumeAggregate(p.id!);
+        }
+        if (this.expandedPerfumeId === p.id) {
+          this.expandedBottles = await this.svc.getBottles(p.id!);
         }
         await this.load();
       } else {

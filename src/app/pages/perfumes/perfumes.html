@@ -54,10 +54,10 @@
             </td>
             <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
             <td>{{ p.brand?.name || '—' }}</td>
-            <td [class.editable]="p.bottles_available <= 1" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id || p.bottles_available > 1">{{ p.current_ml }} / {{ p.full_ml }}</span>
+            <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
+              <span *ngIf="editingRowId !== p.id">{{ p.current_ml }} / {{ p.full_ml }}</span>
               <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
-              <input *ngIf="editingRowId === p.id && p.bottles_available <= 1 && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml"
+              <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml"
                 (blur)="saveInlineEdit(p, 'current_ml', p.current_ml)" class="form-control form-control-sm">
             </td>
             <td>
@@ -94,6 +94,7 @@
             </td>
             <td (click)="$event.stopPropagation()">
               <button class="btn btn-sm btn-outline-info me-1" title="View orders with this perfume" (click)="openOrdersForPerfume(p)">🧾</button>
+              <button class="btn btn-sm btn-outline-primary me-1" title="Add another bottle like the last one" (click)="duplicateLastBottle(p, $event)">⎘</button>
               <button class="btn btn-sm btn-outline-secondary me-1" (click)="openEdit(p)">✎</button>
               <button class="btn btn-sm btn-outline-danger" (click)="remove(p.id!)">🗑</button>
             </td>
@@ -113,6 +114,8 @@
                   <div class="bottle-bar">
                     <div class="bottle-bar-fill" [style.width.%]="getBottlePercentage(b)"></div>
                   </div>
+                  <button class="btn btn-sm btn-outline-secondary" title="Edit remaining ml" (click)="$event.stopPropagation(); startBottleEdit(b)">✎</button>
+                  <button class="btn btn-sm btn-outline-primary" title="Duplicate this bottle" (click)="duplicateBottle(p, b, $event)">⎘</button>
                   <button class="btn btn-sm btn-outline-danger" (click)="$event.stopPropagation(); removeBottle(p, b)">🗑</button>
                 </div>
                 <div *ngIf="expandedBottles.length === 0" class="text-muted text-center py-2">
