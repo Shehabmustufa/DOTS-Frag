@@ -58,7 +58,7 @@
             <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
             <td>{{ p.brand?.name || '—' }}</td>
             <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id">{{ p.current_ml }} / {{ p.full_ml }}</span>
+              <span *ngIf="editingRowId !== p.id" [title]="'Lifetime total (incl. finished bottles): ' + p.full_ml + 'ml'">{{ p.current_ml }} / {{ getActiveFullMl(p) }}</span>
               <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
               <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml"
                 (blur)="saveInlineEdit(p, 'current_ml', p.current_ml)" class="form-control form-control-sm">
@@ -70,8 +70,15 @@
                 </div>
               </div>
             </td>
-            <td [title]="'Withdrawn from bottles minus ml actually sold via decants'">
-              {{ getDeficitMl(p) }} ml <span class="text-muted">({{ getDeficitPercent(p) }}%)</span>
+            <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id"
+                [title]="isDeficitManual(p) ? 'Manual override. Auto-calculated: ' + getDeficitMl(p) + 'ml (' + getDeficitPercent(p) + '%). Click to edit, clear to go back to auto.' : 'Auto-calculated: withdrawn from bottles minus ml sold via decants. Click to override with a known value.'">
+              <ng-container *ngIf="editingRowId !== p.id">
+                {{ getEffectiveDeficitMl(p) }} ml <span class="text-muted">({{ getEffectiveDeficitPercent(p) }}%)</span>
+                <span *ngIf="isDeficitManual(p)" class="badge bg-warning text-dark" style="font-size:9px;">manual</span>
+              </ng-container>
+              <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.manual_deficit_ml"
+                [placeholder]="'Auto: ' + getDeficitMl(p) + 'ml'"
+                (blur)="saveInlineEdit(p, 'manual_deficit_ml', p.manual_deficit_ml)" class="form-control form-control-sm">
             </td>
             <td><span class="badge bg-secondary">{{ p.bottles_available }}</span></td>
             <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id">
@@ -370,7 +377,10 @@
         </div>
         <div class="stat-card stat-deficit" title="Withdrawn from bottles minus ml actually sold via decants — evaporation, spillage, bad pours, testers. Excludes full-bottle sales.">
           <span class="stat-label">Deficit / Lackage</span>
-          <span class="stat-value">{{ perfumeDeficitSummary.ml }} ml ({{ perfumeDeficitSummary.percent }}%)</span>
+          <span class="stat-value">
+            {{ perfumeDeficitSummary.ml }} ml ({{ perfumeDeficitSummary.percent }}%)
+            <span *ngIf="perfumeDeficitSummary.isManual" class="badge bg-warning text-dark" style="font-size:9px;">manual</span>
+          </span>
         </div>
       </div>
       <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">

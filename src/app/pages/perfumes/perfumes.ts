@@ -118,7 +118,7 @@ export class Perfumes implements OnInit {
     }
     if (this.deficitSortDir) {
       const dir = this.deficitSortDir === 'asc' ? 1 : -1;
-      result = [...result].sort((a, b) => (this.getDeficitMl(a) - this.getDeficitMl(b)) * dir);
+      result = [...result].sort((a, b) => (this.getEffectiveDeficitMl(a) - this.getEffectiveDeficitMl(b)) * dir);
     }
     this.filteredPerfumes = result;
   }
@@ -143,6 +143,22 @@ export class Perfumes implements OnInit {
     return Math.round((this.getDeficitMl(p) / Number(p.full_ml)) * 1000) / 10;
   }
 
+  isDeficitManual(p: Perfume): boolean {
+    return p.manual_deficit_ml !== null && p.manual_deficit_ml !== undefined;
+  }
+
+  /** What's actually shown/sorted on — the manual override when one is set (you already
+   *  know the real figure from a physical stock-take and don't trust the computed one),
+   *  otherwise the auto-calculated deficit from getDeficitMl(). */
+  getEffectiveDeficitMl(p: Perfume): number {
+    return this.isDeficitManual(p) ? Number(p.manual_deficit_ml) : this.getDeficitMl(p);
+  }
+
+  getEffectiveDeficitPercent(p: Perfume): number {
+    if (!p.full_ml) return 0;
+    return Math.round((this.getEffectiveDeficitMl(p) / Number(p.full_ml)) * 1000) / 10;
+  }
+
   clearFilters() {
     this._searchQuery = '';
     this._filterCompanyId = null;
@@ -154,9 +170,19 @@ export class Perfumes implements OnInit {
     return this.brands.filter(b => b.company_id === this.selectedCompanyId);
   }
 
+  /** Capacity of bottles still in play — excludes archived (finished) bottles, unlike
+   *  p.full_ml itself, which stays lifetime-total on purpose so getDeficitMl() can still
+   *  measure ml withdrawn by bottles that have since been archived. Falls back to
+   *  p.full_ml when no per-bottle rows came back (legacy perfumes with no bottle records). */
+  getActiveFullMl(p: Perfume): number {
+    if (!p.bottles?.length) return Number(p.full_ml);
+    return p.bottles.filter(b => !b.archived_at).reduce((s, b) => s + Number(b.full_ml), 0);
+  }
+
   getPercentage(p: Perfume): number {
-    if (p.full_ml === 0) return 0;
-    return Math.round((p.current_ml / p.full_ml) * 100);
+    const fullMl = this.getActiveFullMl(p);
+    if (fullMl === 0) return 0;
+    return Math.round((Number(p.current_ml) / fullMl) * 100);
   }
 
   getStatusColor(p: Perfume): string {
@@ -290,14 +316,21 @@ export class Perfumes implements OnInit {
   /** ml withdrawn from this perfume's current bottles (full_ml - current_ml) minus what
    *  perfumeDecantSummary says was actually sold — the leftover is unaccounted for:
    *  evaporation, spillage, bad pours, testers. Full-bottle sales are deliberately left
-   *  out of this (not reliably tied to a perfume_bottles depletion in this data model). */
-  get perfumeDeficitSummary(): { ml: number; percent: number } {
+   *  out of this (not reliably tied to a perfume_bottles depletion in this data model).
+   *  Shows the manual override instead, when one is set on the perfume. */
+  get perfumeDeficitSummary(): { ml: number; percent: number; isManual: boolean } {
     const p = this.ordersModalPerfume;
-    if (!p) return { ml: 0, percent: 0 };
-    const withdrawn = Number(p.full_ml) - Number(p.current_ml);
-    const ml = withdrawn - this.perfumeDecantSummary.totalMl;
+    if (!p) return { ml: 0, percent: 0, isManual: false };
+    const isManual = this.isDeficitManual(p);
+    let ml: number;
+    if (isManual) {
+      ml = Number(p.manual_deficit_ml);
+    } else {
+      const withdrawn = Number(p.full_ml) - Number(p.current_ml);
+      ml = withdrawn - this.perfumeDecantSummary.totalMl;
+    }
     const percent = p.full_ml ? Math.round((ml / Number(p.full_ml)) * 1000) / 10 : 0;
-    return { ml, percent };
+    return { ml, percent, isManual };
   }
 
   // --- Bottle edit / delete (RPC-based) ---
@@ -572,12 +605,20 @@ export class Perfumes implements OnInit {
   }
 
   async saveInlineEdit(p: Perfume, field: string, value: any) {
-    if (value === undefined || value === null || value === '') return;
+    // manual_deficit_ml is the one field where an empty value is meaningful — it clears
+    // the override and falls back to the auto-calculated deficit — so it skips the
+    // "blank means do nothing" guard every other field uses.
+    const isClearingDeficitOverride = field === 'manual_deficit_ml' && (value === undefined || value === null || value === '');
+    if (!isClearingDeficitOverride && (value === undefined || value === null || value === '')) return;
 
     this.savingRowId = p.id!;
     this.error = '';
     try {
-      if (field === 'current_ml') {
+      if (field === 'manual_deficit_ml') {
+        const override = isClearingDeficitOverride ? null : Number(value);
+        await this.svc.update(p.id!, { manual_deficit_ml: override });
+        p.manual_deficit_ml = override;
+      } else if (field === 'current_ml') {
         const bottles = await this.svc.getBottles(p.id!);
         if (bottles.length === 0) {
           await this.svc.update(p.id!, { current_ml: Number(value) });
