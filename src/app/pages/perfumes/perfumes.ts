@@ -6,6 +6,7 @@ import { PerfumeService, Perfume, PerfumeBottle } from '../../core/services/perf
 import { BrandService, Brand, BrandImage, MAX_BRAND_IMAGES } from '../../core/services/brand';
 import { CompanyService, Company } from '../../core/services/company';
 import { OrderService, Order, OrderItem } from '../../core/services/order';
+import { DeficitReportService, DeficitReport, DeficitReason } from '../../core/services/deficit-report';
 
 @Component({
   selector: 'app-perfumes',
@@ -53,6 +54,14 @@ export class Perfumes implements OnInit {
   perfumeOrders: Order[] = [];
   loadingPerfumeOrders = false;
   perfumeOrdersError = '';
+  perfumeDeficitReports: DeficitReport[] = [];
+
+  // --- Report Deficit modal ---
+  showDeficitReportModal = false;
+  deficitReportError = '';
+  deficitReportForm: { perfume_id: number | null; ml: number | null; reason: DeficitReason; note: string } = {
+    perfume_id: null, ml: null, reason: 'lackage', note: '',
+  };
 
   form: Partial<Perfume> = {
     brand_id: undefined, full_ml: 0, current_ml: 0,
@@ -75,6 +84,7 @@ export class Perfumes implements OnInit {
     private brandSvc: BrandService,
     private companySvc: CompanyService,
     private orderSvc: OrderService,
+    private deficitReportSvc: DeficitReportService,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
@@ -118,7 +128,7 @@ export class Perfumes implements OnInit {
     }
     if (this.deficitSortDir) {
       const dir = this.deficitSortDir === 'asc' ? 1 : -1;
-      result = [...result].sort((a, b) => (this.getEffectiveDeficitMl(a) - this.getEffectiveDeficitMl(b)) * dir);
+      result = [...result].sort((a, b) => (this.getDeficitMl(a) - this.getDeficitMl(b)) * dir);
     }
     this.filteredPerfumes = result;
   }
@@ -141,22 +151,6 @@ export class Perfumes implements OnInit {
   getDeficitPercent(p: Perfume): number {
     if (!p.full_ml) return 0;
     return Math.round((this.getDeficitMl(p) / Number(p.full_ml)) * 1000) / 10;
-  }
-
-  isDeficitManual(p: Perfume): boolean {
-    return p.manual_deficit_ml !== null && p.manual_deficit_ml !== undefined;
-  }
-
-  /** What's actually shown/sorted on — the manual override when one is set (you already
-   *  know the real figure from a physical stock-take and don't trust the computed one),
-   *  otherwise the auto-calculated deficit from getDeficitMl(). */
-  getEffectiveDeficitMl(p: Perfume): number {
-    return this.isDeficitManual(p) ? Number(p.manual_deficit_ml) : this.getDeficitMl(p);
-  }
-
-  getEffectiveDeficitPercent(p: Perfume): number {
-    if (!p.full_ml) return 0;
-    return Math.round((this.getEffectiveDeficitMl(p) / Number(p.full_ml)) * 1000) / 10;
   }
 
   clearFilters() {
@@ -234,11 +228,17 @@ export class Perfumes implements OnInit {
     this.ordersModalPerfume = p;
     this.showOrdersModal = true;
     this.perfumeOrders = [];
+    this.perfumeDeficitReports = [];
     this.perfumeOrdersError = '';
     this.loadingPerfumeOrders = true;
     this.cdr.markForCheck();
     try {
-      this.perfumeOrders = await this.orderSvc.getByPerfume(p.id!, p.brand_id);
+      const [orders, reports] = await Promise.all([
+        this.orderSvc.getByPerfume(p.id!, p.brand_id),
+        this.deficitReportSvc.getByPerfume(p.id!),
+      ]);
+      this.perfumeOrders = orders;
+      this.perfumeDeficitReports = reports;
     } catch (e: any) {
       this.perfumeOrdersError = e?.message || 'Failed to load orders';
     } finally {
@@ -251,6 +251,54 @@ export class Perfumes implements OnInit {
     this.showOrdersModal = false;
     this.ordersModalPerfume = null;
     this.perfumeOrders = [];
+    this.perfumeDeficitReports = [];
+  }
+
+  async deleteDeficitReport(r: DeficitReport) {
+    if (!confirm('Delete this deficit report?')) return;
+    try {
+      await this.deficitReportSvc.delete(r.id!);
+      this.perfumeDeficitReports = this.perfumeDeficitReports.filter(x => x.id !== r.id);
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.perfumeOrdersError = e?.message || 'Failed to delete report';
+      this.cdr.markForCheck();
+    }
+  }
+
+  // --- Report Deficit modal ---
+
+  openDeficitReportModal() {
+    this.deficitReportError = '';
+    this.deficitReportForm = { perfume_id: null, ml: null, reason: 'lackage', note: '' };
+    this.showDeficitReportModal = true;
+  }
+
+  closeDeficitReportModal() {
+    this.showDeficitReportModal = false;
+  }
+
+  async submitDeficitReport() {
+    const f = this.deficitReportForm;
+    if (!f.perfume_id || f.ml === null || f.ml === undefined || f.ml === ('' as any)) {
+      this.deficitReportError = 'Pick a perfume and enter a deficit amount.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.deficitReportError = '';
+    try {
+      await this.deficitReportSvc.create({
+        perfume_id: f.perfume_id, ml: Number(f.ml), reason: f.reason, note: f.note,
+      });
+      this.showDeficitReportModal = false;
+      if (this.ordersModalPerfume?.id === f.perfume_id) {
+        this.perfumeDeficitReports = await this.deficitReportSvc.getByPerfume(f.perfume_id);
+      }
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.deficitReportError = e?.message || 'Failed to report deficit';
+      this.cdr.markForCheck();
+    }
   }
 
   /** Jump to the Orders page with this order expanded in place. */
@@ -316,21 +364,14 @@ export class Perfumes implements OnInit {
   /** ml withdrawn from this perfume's current bottles (full_ml - current_ml) minus what
    *  perfumeDecantSummary says was actually sold — the leftover is unaccounted for:
    *  evaporation, spillage, bad pours, testers. Full-bottle sales are deliberately left
-   *  out of this (not reliably tied to a perfume_bottles depletion in this data model).
-   *  Shows the manual override instead, when one is set on the perfume. */
-  get perfumeDeficitSummary(): { ml: number; percent: number; isManual: boolean } {
+   *  out of this (not reliably tied to a perfume_bottles depletion in this data model). */
+  get perfumeDeficitSummary(): { ml: number; percent: number } {
     const p = this.ordersModalPerfume;
-    if (!p) return { ml: 0, percent: 0, isManual: false };
-    const isManual = this.isDeficitManual(p);
-    let ml: number;
-    if (isManual) {
-      ml = Number(p.manual_deficit_ml);
-    } else {
-      const withdrawn = Number(p.full_ml) - Number(p.current_ml);
-      ml = withdrawn - this.perfumeDecantSummary.totalMl;
-    }
+    if (!p) return { ml: 0, percent: 0 };
+    const withdrawn = Number(p.full_ml) - Number(p.current_ml);
+    const ml = withdrawn - this.perfumeDecantSummary.totalMl;
     const percent = p.full_ml ? Math.round((ml / Number(p.full_ml)) * 1000) / 10 : 0;
-    return { ml, percent, isManual };
+    return { ml, percent };
   }
 
   // --- Bottle edit / delete (RPC-based) ---
@@ -605,20 +646,12 @@ export class Perfumes implements OnInit {
   }
 
   async saveInlineEdit(p: Perfume, field: string, value: any) {
-    // manual_deficit_ml is the one field where an empty value is meaningful — it clears
-    // the override and falls back to the auto-calculated deficit — so it skips the
-    // "blank means do nothing" guard every other field uses.
-    const isClearingDeficitOverride = field === 'manual_deficit_ml' && (value === undefined || value === null || value === '');
-    if (!isClearingDeficitOverride && (value === undefined || value === null || value === '')) return;
+    if (value === undefined || value === null || value === '') return;
 
     this.savingRowId = p.id!;
     this.error = '';
     try {
-      if (field === 'manual_deficit_ml') {
-        const override = isClearingDeficitOverride ? null : Number(value);
-        await this.svc.update(p.id!, { manual_deficit_ml: override });
-        p.manual_deficit_ml = override;
-      } else if (field === 'current_ml') {
+      if (field === 'current_ml') {
         const bottles = await this.svc.getBottles(p.id!);
         if (bottles.length === 0) {
           await this.svc.update(p.id!, { current_ml: Number(value) });
