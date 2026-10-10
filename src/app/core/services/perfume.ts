@@ -44,6 +44,9 @@ export interface PerfumeBottle {
   /** The purchase cost row this bottle is linked to, if any — joined in by getBottles()
    *  so the UI can prefill a duplicate bottle's cost price without a second query. */
   cost?: { amount: number } | null;
+  /** Set when a finished/emptied bottle is archived instead of deleted — hides it from
+   *  the active bottle list while keeping the bottle row and its cost record intact. */
+  archived_at?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -140,6 +143,16 @@ export class PerfumeService {
 
   async deleteBottle(bottleId: number): Promise<void> {
     const { error } = await this.supa.client.rpc('delete_perfume_bottle', { p_bottle_id: bottleId });
+    if (error) throw error;
+  }
+
+  /** Marks a bottle as finished/empty (or undoes that) without touching its row or cost
+   *  record — use this instead of deleteBottle() when a bottle is just empty, not a mistake. */
+  async archiveBottle(bottleId: number, archived: boolean): Promise<void> {
+    const { error } = await this.supa.client.rpc('archive_perfume_bottle', {
+      p_bottle_id: bottleId,
+      p_archived: archived,
+    });
     if (error) throw error;
   }
 }

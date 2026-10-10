@@ -38,6 +38,11 @@ export class Perfumes implements OnInit {
 
   filteredPerfumes: Perfume[] = [];
 
+  /** perfume_id -> total ml sold via decants, lifetime. Loaded once in load() and used
+   *  by getDeficitMl()/getDeficitPercent() for every row's deficit/lackage column. */
+  private decantSoldByPerfume = new Map<number, number>();
+  deficitSortDir: 'asc' | 'desc' | null = null;
+
   expandedPerfumeId: number | null = null;
   expandedBottles: PerfumeBottle[] = [];
   editingBottleId: number | null = null;
@@ -80,14 +85,16 @@ export class Perfumes implements OnInit {
     this.error = '';
     this.loading = true;
     try {
-      const [p, b, c] = await Promise.all([
+      const [p, b, c, decantTotals] = await Promise.all([
         this.svc.getAll(),
         this.brandSvc.getAll(),
-        this.companySvc.getAll()
+        this.companySvc.getAll(),
+        this.orderSvc.getDecantMlSoldByPerfume(),
       ]);
       this.perfumes = p || [];
       this.brands = b || [];
       this.companies = c || [];
+      this.decantSoldByPerfume = decantTotals;
       this.applyFilter();
     } catch (e: any) {
       this.error = e?.message || 'Failed to load data';
@@ -109,7 +116,31 @@ export class Perfumes implements OnInit {
     if (this._filterCompanyId) {
       result = result.filter(p => p.brand?.company_id === this._filterCompanyId);
     }
+    if (this.deficitSortDir) {
+      const dir = this.deficitSortDir === 'asc' ? 1 : -1;
+      result = [...result].sort((a, b) => (this.getDeficitMl(a) - this.getDeficitMl(b)) * dir);
+    }
     this.filteredPerfumes = result;
+  }
+
+  toggleDeficitSort() {
+    this.deficitSortDir = this.deficitSortDir === 'desc' ? 'asc' : 'desc';
+    this.applyFilter();
+  }
+
+  /** ml withdrawn from this perfume's current bottles (full_ml - current_ml) minus what was
+   *  actually sold via decants — what's left over is unaccounted for: evaporation, spillage,
+   *  bad pours, testers. Full-bottle sales are deliberately excluded (see chat context: the
+   *  data model doesn't reliably tie a full-bottle sale to a specific perfume_bottles row). */
+  getDeficitMl(p: Perfume): number {
+    const withdrawn = Number(p.full_ml) - Number(p.current_ml);
+    const sold = this.decantSoldByPerfume.get(p.id!) || 0;
+    return withdrawn - sold;
+  }
+
+  getDeficitPercent(p: Perfume): number {
+    if (!p.full_ml) return 0;
+    return Math.round((this.getDeficitMl(p) / Number(p.full_ml)) * 1000) / 10;
   }
 
   clearFilters() {
@@ -143,8 +174,18 @@ export class Perfumes implements OnInit {
 
   // --- Expand / Collapse ---
 
+  /** Bottles currently being drawn from or waiting to be opened. */
+  get activeBottles(): PerfumeBottle[] {
+    return this.expandedBottles.filter(b => !b.archived_at);
+  }
+
+  /** Emptied bottles marked finished instead of deleted — kept (and their cost record
+   *  with them) so inventory history isn't lost, just hidden from the active list. */
+  get finishedBottles(): PerfumeBottle[] {
+    return this.expandedBottles.filter(b => !!b.archived_at);
+  }
+
   async toggleExpand(p: Perfume) {
-    if (p.bottles_available <= 1) return;
     if (this.expandedPerfumeId === p.id) {
       this.expandedPerfumeId = null;
       this.expandedBottles = [];
@@ -246,6 +287,19 @@ export class Perfumes implements OnInit {
     return { count };
   }
 
+  /** ml withdrawn from this perfume's current bottles (full_ml - current_ml) minus what
+   *  perfumeDecantSummary says was actually sold — the leftover is unaccounted for:
+   *  evaporation, spillage, bad pours, testers. Full-bottle sales are deliberately left
+   *  out of this (not reliably tied to a perfume_bottles depletion in this data model). */
+  get perfumeDeficitSummary(): { ml: number; percent: number } {
+    const p = this.ordersModalPerfume;
+    if (!p) return { ml: 0, percent: 0 };
+    const withdrawn = Number(p.full_ml) - Number(p.current_ml);
+    const ml = withdrawn - this.perfumeDecantSummary.totalMl;
+    const percent = p.full_ml ? Math.round((ml / Number(p.full_ml)) * 1000) / 10 : 0;
+    return { ml, percent };
+  }
+
   // --- Bottle edit / delete (RPC-based) ---
 
   startBottleEdit(b: PerfumeBottle) {
@@ -269,23 +323,33 @@ export class Perfumes implements OnInit {
   }
 
   async removeBottle(p: Perfume, b: PerfumeBottle) {
-    if (!confirm('Delete this bottle? Its cost will also be removed.')) return;
+    if (!confirm('Delete this bottle? Its cost will also be removed. If you just finished this bottle and want to keep its cost record, use Archive instead.')) return;
     try {
       await this.svc.deleteBottle(b.id!);
       await this.syncPerfumeAggregate(p.id!);
       await this.load();
       if (this.expandedPerfumeId) {
-        const remaining = await this.svc.getBottles(this.expandedPerfumeId);
-        if (remaining.length <= 1) {
-          this.expandedPerfumeId = null;
-          this.expandedBottles = [];
-        } else {
-          this.expandedBottles = remaining;
-        }
+        this.expandedBottles = await this.svc.getBottles(this.expandedPerfumeId);
       }
       this.cdr.markForCheck();
     } catch (e: any) {
       this.error = e?.message || 'Delete failed';
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Marks a finished/emptied bottle as archived (or brings it back) — unlike removeBottle(),
+   *  this never touches the bottle row or its cost record, just hides it from the active list. */
+  async toggleArchiveBottle(p: Perfume, b: PerfumeBottle) {
+    try {
+      await this.svc.archiveBottle(b.id!, !b.archived_at);
+      await this.load();
+      if (this.expandedPerfumeId) {
+        this.expandedBottles = await this.svc.getBottles(this.expandedPerfumeId);
+      }
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.error = e?.message || 'Failed to archive bottle';
       this.cdr.markForCheck();
     }
   }
@@ -295,8 +359,10 @@ export class Perfumes implements OnInit {
    *  that still has stock, falling back to the most recently added bottle overall. */
   private pickActiveBottle(bottles: PerfumeBottle[]): PerfumeBottle | null {
     if (!bottles.length) return null;
-    const inStock = bottles.filter(b => b.current_ml > 0);
-    const pool = inStock.length ? inStock : bottles;
+    const nonArchived = bottles.filter(b => !b.archived_at);
+    const pool0 = nonArchived.length ? nonArchived : bottles;
+    const inStock = pool0.filter(b => b.current_ml > 0);
+    const pool = inStock.length ? inStock : pool0;
     return pool.reduce((a, b) => ((a.created_at || '') > (b.created_at || '') ? a : b));
   }
 

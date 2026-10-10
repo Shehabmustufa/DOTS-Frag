@@ -93,6 +93,27 @@ export class OrderService {
     return data as Order[];
   }
 
+  /** Total ml sold via decants for every perfume, in one query — lets the Perfumes page
+   *  show a deficit/lackage figure for every row without fetching each perfume's order
+   *  history individually. Same filtering as the per-perfume decant total shown in the
+   *  Orders-for-perfume modal: excludes refundable-bottle and full-bottle lines (not
+   *  decant sales) and cancelled orders (their stock was returned). */
+  async getDecantMlSoldByPerfume(): Promise<Map<number, number>> {
+    const { data, error } = await this.supa.client
+      .from('order_items')
+      .select('perfume_id, decant_size_ml, quantity, is_refundable_bottle, is_full_bottle, order:orders(order_status)')
+      .not('perfume_id', 'is', null);
+    if (error) throw error;
+    const totals = new Map<number, number>();
+    for (const item of (data as any[]) || []) {
+      if (item.is_refundable_bottle || item.is_full_bottle) continue;
+      if (item.order?.order_status === 'cancelled') continue;
+      const ml = (Number(item.decant_size_ml) || 0) * (Number(item.quantity) || 0);
+      totals.set(item.perfume_id, (totals.get(item.perfume_id) || 0) + ml);
+    }
+    return totals;
+  }
+
   async getGiftCustomerIds(): Promise<Set<number>> {
     const { data, error } = await this.supa.client
       .from('orders')
