@@ -170,9 +170,19 @@ export class Perfumes implements OnInit {
     return this.brands.filter(b => b.company_id === this.selectedCompanyId);
   }
 
+  /** Capacity of bottles still in play — excludes archived (finished) bottles, unlike
+   *  p.full_ml itself, which stays lifetime-total on purpose so getDeficitMl() can still
+   *  measure ml withdrawn by bottles that have since been archived. Falls back to
+   *  p.full_ml when no per-bottle rows came back (legacy perfumes with no bottle records). */
+  getActiveFullMl(p: Perfume): number {
+    if (!p.bottles?.length) return Number(p.full_ml);
+    return p.bottles.filter(b => !b.archived_at).reduce((s, b) => s + Number(b.full_ml), 0);
+  }
+
   getPercentage(p: Perfume): number {
-    if (p.full_ml === 0) return 0;
-    return Math.round((p.current_ml / p.full_ml) * 100);
+    const fullMl = this.getActiveFullMl(p);
+    if (fullMl === 0) return 0;
+    return Math.round((Number(p.current_ml) / fullMl) * 100);
   }
 
   getStatusColor(p: Perfume): string {

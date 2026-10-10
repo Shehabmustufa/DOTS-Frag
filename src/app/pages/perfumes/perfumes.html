@@ -58,7 +58,7 @@
             <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
             <td>{{ p.brand?.name || '—' }}</td>
             <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id">{{ p.current_ml }} / {{ p.full_ml }}</span>
+              <span *ngIf="editingRowId !== p.id" [title]="'Lifetime total (incl. finished bottles): ' + p.full_ml + 'ml'">{{ p.current_ml }} / {{ getActiveFullMl(p) }}</span>
               <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
               <input *ngIf="editingRowId === p.id && savingRowId !== p.id" type="number" [(ngModel)]="p.current_ml"
                 (blur)="saveInlineEdit(p, 'current_ml', p.current_ml)" class="form-control form-control-sm">
