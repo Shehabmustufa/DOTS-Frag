@@ -35,6 +35,9 @@
           <th>Brand</th>
           <th>ML</th>
           <th>Stock %</th>
+          <th class="sortable-th" (click)="toggleDeficitSort()" title="Sort by deficit">
+            Deficit <span *ngIf="deficitSortDir">{{ deficitSortDir === 'desc' ? '▼' : '▲' }}</span>
+          </th>
           <th>Bottles</th>
           <th>5ml</th>
           <th>10ml</th>
@@ -46,9 +49,9 @@
       </thead>
       <tbody>
         <ng-container *ngFor="let p of filteredPerfumes">
-          <tr [class.expandable-row]="p.bottles_available > 1">
+          <tr class="expandable-row">
             <td class="expand-cell" (click)="toggleExpand(p)">
-              <span *ngIf="p.bottles_available > 1" class="expand-icon">
+              <span class="expand-icon">
                 {{ expandedPerfumeId === p.id ? '▼' : '▶' }}
               </span>
             </td>
@@ -66,6 +69,9 @@
                   {{ getPercentage(p) }}%
                 </div>
               </div>
+            </td>
+            <td [title]="'Withdrawn from bottles minus ml actually sold via decants'">
+              {{ getDeficitMl(p) }} ml <span class="text-muted">({{ getDeficitPercent(p) }}%)</span>
             </td>
             <td><span class="badge bg-secondary">{{ p.bottles_available }}</span></td>
             <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id">
@@ -101,10 +107,10 @@
           </tr>
           <!-- Expanded bottles row -->
           <tr *ngIf="expandedPerfumeId === p.id" class="bottles-expanded-row">
-            <td colspan="12">
+            <td colspan="13">
               <div class="bottles-list">
                 <div class="bottles-header">Individual Bottles</div>
-                <div *ngFor="let b of expandedBottles" class="bottle-item" style="cursor:pointer" title="View orders with this perfume" (click)="openOrdersForPerfume(p)">
+                <div *ngFor="let b of activeBottles" class="bottle-item" style="cursor:pointer" title="View orders with this perfume" (click)="openOrdersForPerfume(p)">
                   <span class="bottle-date">{{ b.created_at | date:'mediumDate' }}</span>
                   <span class="bottle-ml" *ngIf="editingBottleId !== b.id" (click)="$event.stopPropagation(); startBottleEdit(b)">
                     {{ b.current_ml }} / {{ b.full_ml }} ml
@@ -116,17 +122,29 @@
                   </div>
                   <button class="btn btn-sm btn-outline-secondary" title="Edit remaining ml" (click)="$event.stopPropagation(); startBottleEdit(b)">✎</button>
                   <button class="btn btn-sm btn-outline-primary" title="Duplicate this bottle" (click)="duplicateBottle(p, b, $event)">⎘</button>
-                  <button class="btn btn-sm btn-outline-danger" (click)="$event.stopPropagation(); removeBottle(p, b)">🗑</button>
+                  <button class="btn btn-sm btn-outline-success" title="Mark as finished — keeps its cost record, just hides it from this list" (click)="$event.stopPropagation(); toggleArchiveBottle(p, b)">📦</button>
+                  <button class="btn btn-sm btn-outline-danger" title="Delete — also deletes its cost record" (click)="$event.stopPropagation(); removeBottle(p, b)">🗑</button>
                 </div>
-                <div *ngIf="expandedBottles.length === 0" class="text-muted text-center py-2">
-                  No bottle records found.
+                <div *ngIf="activeBottles.length === 0" class="text-muted text-center py-2">
+                  No active bottle records.
                 </div>
+
+                <ng-container *ngIf="finishedBottles.length > 0">
+                  <div class="bottles-header finished-bottles-header">Finished Bottles ({{ finishedBottles.length }})</div>
+                  <div *ngFor="let b of finishedBottles" class="bottle-item bottle-item-finished">
+                    <span class="bottle-date">{{ b.created_at | date:'mediumDate' }}</span>
+                    <span class="bottle-ml text-muted">{{ b.full_ml }} ml — finished</span>
+                    <div class="bottle-bar"></div>
+                    <button class="btn btn-sm btn-outline-secondary" title="Bring back to the active list" (click)="toggleArchiveBottle(p, b)">↩ Unarchive</button>
+                    <button class="btn btn-sm btn-outline-danger" title="Delete — also deletes its cost record" (click)="removeBottle(p, b)">🗑</button>
+                  </div>
+                </ng-container>
               </div>
             </td>
           </tr>
         </ng-container>
         <tr *ngIf="filteredPerfumes.length === 0">
-          <td colspan="12" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
+          <td colspan="13" class="text-center text-muted py-4">No perfumes yet. Add one to get started.</td>
         </tr>
       </tbody>
     </table>
@@ -349,6 +367,10 @@
         <div class="stat-card stat-full-bottles">
           <span class="stat-label">Total Bottles Sold</span>
           <span class="stat-value">{{ perfumeBottlesSoldSummary.count }}</span>
+        </div>
+        <div class="stat-card stat-deficit" title="Withdrawn from bottles minus ml actually sold via decants — evaporation, spillage, bad pours, testers. Excludes full-bottle sales.">
+          <span class="stat-label">Deficit / Lackage</span>
+          <span class="stat-value">{{ perfumeDeficitSummary.ml }} ml ({{ perfumeDeficitSummary.percent }}%)</span>
         </div>
       </div>
       <table class="table table-hover mb-0" *ngIf="!loadingPerfumeOrders && perfumeOrders.length > 0">
