@@ -25,6 +25,10 @@ export interface Perfume {
   is_published?: boolean;
   is_summer?: boolean;
   is_winter?: boolean;
+  /** Single discount percentage for every decant size. The source of truth for a
+   *  decant sale — sale_price_5ml/10ml/30ml below are DERIVED from it by a DB
+   *  trigger (phase20) and should be treated as read-only display values. */
+  decant_sale_percent?: number | null;
   sale_price_5ml?: number | null;
   sale_price_10ml?: number | null;
   sale_price_30ml?: number | null;
@@ -62,6 +66,21 @@ export class PerfumeService {
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data as Perfume[]) || [];
+  }
+
+  /** The decant perfume row for a brand (at most one per brand — see Brands panel's
+   *  getInventory()). Used right after addBottle() to find a brand-new row's id, since
+   *  the RPC only sets inventory/pricing columns and returns nothing. */
+  async getIdByBrandId(brandId: number): Promise<number | null> {
+    const { data, error } = await this.supa.client
+      .from(this.table)
+      .select('id')
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { id: number } | null)?.id ?? null;
   }
 
   async getById(id: number): Promise<Perfume | null> {
@@ -109,9 +128,11 @@ export class PerfumeService {
     if (p.is_published !== undefined) payload.is_published = p.is_published;
     if (p.is_summer !== undefined) payload.is_summer = !!p.is_summer;
     if (p.is_winter !== undefined) payload.is_winter = !!p.is_winter;
-    if (p.sale_price_5ml !== undefined) payload.sale_price_5ml = p.sale_price_5ml === null || (p.sale_price_5ml as any) === '' ? null : Number(p.sale_price_5ml);
-    if (p.sale_price_10ml !== undefined) payload.sale_price_10ml = p.sale_price_10ml === null || (p.sale_price_10ml as any) === '' ? null : Number(p.sale_price_10ml);
-    if (p.sale_price_30ml !== undefined) payload.sale_price_30ml = p.sale_price_30ml === null || (p.sale_price_30ml as any) === '' ? null : Number(p.sale_price_30ml);
+    // sale_price_5ml/10ml/30ml are never written directly — the decant_sale_percent
+    // trigger (phase20) derives them from this and the price_* columns.
+    if (p.decant_sale_percent !== undefined) {
+      payload.decant_sale_percent = p.decant_sale_percent === null || (p.decant_sale_percent as any) === '' ? null : Number(p.decant_sale_percent);
+    }
 
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
     if (error) throw error;

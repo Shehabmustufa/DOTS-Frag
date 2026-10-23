@@ -52,14 +52,17 @@
       </thead>
       <tbody>
         <ng-container *ngFor="let p of filteredPerfumes">
-          <tr class="expandable-row">
+          <tr class="expandable-row" [class.row-on-sale]="hasDecantSale(p)">
             <td class="expand-cell" (click)="toggleExpand(p)">
               <span class="expand-icon">
                 {{ expandedPerfumeId === p.id ? '▼' : '▶' }}
               </span>
             </td>
             <td class="fw-bold">{{ p.brand?.company?.name || '—' }}</td>
-            <td>{{ p.brand?.name || '—' }}</td>
+            <td>
+              {{ p.brand?.name || '—' }}
+              <span *ngIf="hasDecantSale(p)" class="sale-badge" [title]="p.decant_sale_percent + '% off decants'">-{{ p.decant_sale_percent }}%</span>
+            </td>
             <td class="editable" (click)="startInlineEdit(p)" [class.editing]="editingRowId === p.id" [class.saving]="savingRowId === p.id">
               <span *ngIf="editingRowId !== p.id" [title]="'Lifetime total (incl. finished bottles): ' + p.full_ml + 'ml'">{{ p.current_ml }} / {{ getActiveFullMl(p) }}</span>
               <span *ngIf="savingRowId === p.id" class="text-muted">💾</span>
@@ -78,17 +81,35 @@
             </td>
             <td><span class="badge bg-secondary">{{ p.bottles_available }}</span></td>
             <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id">{{ p.price_5ml }}</span>
+              <ng-container *ngIf="editingRowId !== p.id">
+                <ng-container *ngIf="p.sale_price_5ml; else plain5ml">
+                  <span class="price-old">{{ p.price_5ml }}</span>
+                  <span class="price-sale">{{ p.sale_price_5ml }}</span>
+                </ng-container>
+                <ng-template #plain5ml>{{ p.price_5ml }}</ng-template>
+              </ng-container>
               <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_5ml"
                 (blur)="saveInlineEdit(p, 'price_5ml', p.price_5ml)" class="form-control form-control-sm">
             </td>
             <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id">{{ p.price_10ml }}</span>
+              <ng-container *ngIf="editingRowId !== p.id">
+                <ng-container *ngIf="p.sale_price_10ml; else plain10ml">
+                  <span class="price-old">{{ p.price_10ml }}</span>
+                  <span class="price-sale">{{ p.sale_price_10ml }}</span>
+                </ng-container>
+                <ng-template #plain10ml>{{ p.price_10ml }}</ng-template>
+              </ng-container>
               <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_10ml"
                 (blur)="saveInlineEdit(p, 'price_10ml', p.price_10ml)" class="form-control form-control-sm">
             </td>
             <td class="editable" (click)="$event.stopPropagation(); editingRowId = p.id!" [class.editing]="editingRowId === p.id">
-              <span *ngIf="editingRowId !== p.id">{{ p.price_30ml || '—' }}</span>
+              <ng-container *ngIf="editingRowId !== p.id">
+                <ng-container *ngIf="p.sale_price_30ml; else plain30ml">
+                  <span class="price-old">{{ p.price_30ml }}</span>
+                  <span class="price-sale">{{ p.sale_price_30ml }}</span>
+                </ng-container>
+                <ng-template #plain30ml>{{ p.price_30ml || '—' }}</ng-template>
+              </ng-container>
               <input *ngIf="editingRowId === p.id" type="number" [(ngModel)]="p.price_30ml"
                 (blur)="saveInlineEdit(p, 'price_30ml', p.price_30ml)" class="form-control form-control-sm">
             </td>
@@ -265,18 +286,28 @@
           <textarea class="form-control" rows="2" [(ngModel)]="form.notes" placeholder="e.g. Top: Bergamot, Lemon | Middle: Rose, Jasmine | Base: Musk, Amber"></textarea>
         </div>
 
-        <!-- Decant sale prices -->
-        <div class="col-12" *ngIf="isEdit">
-          <label class="form-label mb-1">Decant Sale Prices <span class="text-muted" style="font-weight:normal;">(optional — leave blank for no discount)</span></label>
+        <!-- Decant discount: one percentage applies to every decant size. The actual
+             sale_price_5ml/10ml/30ml columns are derived by a DB trigger (phase20) —
+             this preview just mirrors that math so the computed prices aren't a surprise. -->
+        <div class="col-4">
+          <label class="form-label">Decant Discount %</label>
+          <input type="number" min="0" max="99" class="form-control" [(ngModel)]="form.decant_sale_percent" placeholder="e.g. 20">
         </div>
-        <div class="col-4" *ngIf="isEdit">
-          <input type="number" class="form-control" [(ngModel)]="form.sale_price_5ml" placeholder="Sale price 5ml">
+        <div class="col-8 d-flex align-items-end" *ngIf="form.decant_sale_percent">
+          <small class="text-muted">
+            <ng-container *ngIf="previewSalePrice(form.price_5ml)">5ml: {{ form.price_5ml }} → {{ previewSalePrice(form.price_5ml) }} EGP&nbsp;&nbsp;</ng-container>
+            <ng-container *ngIf="previewSalePrice(form.price_10ml)">10ml: {{ form.price_10ml }} → {{ previewSalePrice(form.price_10ml) }} EGP&nbsp;&nbsp;</ng-container>
+            <ng-container *ngIf="previewSalePrice(form.price_30ml)">35ml: {{ form.price_30ml }} → {{ previewSalePrice(form.price_30ml) }} EGP</ng-container>
+          </small>
         </div>
-        <div class="col-4" *ngIf="isEdit">
-          <input type="number" class="form-control" [(ngModel)]="form.sale_price_10ml" placeholder="Sale price 10ml">
-        </div>
-        <div class="col-4" *ngIf="isEdit">
-          <input type="number" class="form-control" [(ngModel)]="form.sale_price_30ml" placeholder="Sale price 35ml">
+
+        <!-- Full bottle discount — always available; it applies to the "Full Bottle Sale
+             (EGP)" regular price entered above, same as the decant sizes above it. The
+             rest of the full bottle catalog (cost price, images, gender, ...) stays an
+             edit-only step, same as before. -->
+        <div class="col-4" *ngIf="!isEdit">
+          <label class="form-label">Full Bottle Discount Price (EGP)</label>
+          <input type="number" class="form-control" [(ngModel)]="brandForm.full_bottle_sale_price" placeholder="Optional discount price">
         </div>
 
         <!-- Brand-level full bottle catalog (shared with Brands panel) -->

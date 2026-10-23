@@ -214,8 +214,30 @@ export class Brands implements OnInit {
     if (gender !== 'unisex') this.form.unisex_lean = null;
   }
 
+  /** Full bottle sale price: numeric, positive, and strictly lower than the full
+   *  bottle price — or null/blank, which just means "no sale". */
+  private validateSalePrice(): string | null {
+    const sale = this.form.full_bottle_sale_price;
+    if (sale === null || sale === undefined || (sale as any) === '') return null;
+    const saleNum = Number(sale);
+    const regularNum = Number(this.form.full_bottle_price) || 0;
+    if (!Number.isFinite(saleNum) || saleNum <= 0) {
+      return 'Sale price must be a positive number';
+    }
+    if (regularNum <= 0 || saleNum >= regularNum) {
+      return `Sale price must be lower than the full bottle price (currently ${regularNum} EGP)`;
+    }
+    return null;
+  }
+
   async save() {
     this.error = '';
+    const salePriceError = this.validateSalePrice();
+    if (salePriceError) {
+      this.error = salePriceError;
+      this.cdr.markForCheck();
+      return;
+    }
     try {
       if (this.isEdit && this.editId) await this.brandSvc.update(this.editId, this.form);
       else await this.brandSvc.create(this.form);

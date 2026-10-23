@@ -69,7 +69,7 @@ export class Perfumes implements OnInit {
     price_5ml: 0, price_10ml: 0, price_30ml: 0,
     description: '', notes: '', gender: 'unisex', unisex_lean: null,
     is_published: false, is_summer: false, is_winter: false,
-    sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
+    decant_sale_percent: null,
   };
 
   // --- Brand-level full-bottle catalog (shared with the Brands panel) ---
@@ -190,6 +190,22 @@ export class Perfumes implements OnInit {
   getBottlePercentage(b: PerfumeBottle): number {
     if (b.full_ml === 0) return 0;
     return Math.round((b.current_ml / b.full_ml) * 100);
+  }
+
+  /** True when this row has an active decant discount — drives the row highlight
+   *  and the "Sale" badge in the inventory table. */
+  hasDecantSale(p: Perfume): boolean {
+    return !!(p.decant_sale_percent && p.decant_sale_percent > 0);
+  }
+
+  /** Live preview of what each decant size will sell for while typing a discount
+   *  percentage into the Add/Edit modal — the real values are computed by the DB
+   *  trigger on save, this just mirrors that math so the number isn't a surprise. */
+  previewSalePrice(regularPrice: number | null | undefined): number | null {
+    const percent = this.form.decant_sale_percent;
+    const regular = Number(regularPrice) || 0;
+    if (!percent || percent <= 0 || regular <= 0) return null;
+    return Math.round(regular * (1 - percent / 100) * 100) / 100;
   }
 
   // --- Expand / Collapse ---
@@ -488,7 +504,7 @@ export class Perfumes implements OnInit {
       price_5ml: p.price_5ml, price_10ml: p.price_10ml, price_30ml: p.price_30ml || 0,
       description: '', notes: '', gender: 'unisex', unisex_lean: null,
       is_published: false, is_summer: false, is_winter: false,
-      sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
+      decant_sale_percent: null,
     };
     this.showModal = true;
     this.cdr.markForCheck();
@@ -509,7 +525,7 @@ export class Perfumes implements OnInit {
       price_5ml: 0, price_10ml: 0, price_30ml: 0,
       description: '', notes: '', gender: 'unisex', unisex_lean: null,
       is_published: false,
-      sale_price_5ml: null, sale_price_10ml: null, sale_price_30ml: null,
+      decant_sale_percent: null,
     };
     this.showModal = true;
   }
@@ -526,7 +542,7 @@ export class Perfumes implements OnInit {
       description: p.description || '', notes: p.notes || '',
       gender: p.gender || 'unisex', unisex_lean: p.unisex_lean ?? null, is_published: p.is_published || false,
       is_summer: p.is_summer || false, is_winter: p.is_winter || false,
-      sale_price_5ml: p.sale_price_5ml ?? null, sale_price_10ml: p.sale_price_10ml ?? null, sale_price_30ml: p.sale_price_30ml ?? null,
+      decant_sale_percent: p.decant_sale_percent ?? null,
     };
     this.brandForm = {
       cost_price: brand?.cost_price ?? null,
@@ -601,8 +617,44 @@ export class Perfumes implements OnInit {
     }
   }
 
+  /** Decant discount: one percentage covering every decant size, so it's only
+   *  validated as a plain 0–100 percent (the price comparison happens automatically
+   *  once price_5ml/10ml/30ml combine with it via the DB trigger). Full bottle:
+   *  still a standalone price, so still validated like one — numeric, positive,
+   *  and strictly lower than the regular full bottle price — or null/blank, which
+   *  just means "no sale". */
+  private validateSalePrices(): string | null {
+    const percent = this.form.decant_sale_percent;
+    if (percent !== null && percent !== undefined && (percent as any) !== '') {
+      const percentNum = Number(percent);
+      if (!Number.isFinite(percentNum) || percentNum <= 0 || percentNum >= 100) {
+        return 'Decant discount must be a percentage between 0 and 100';
+      }
+    }
+
+    const sale = this.brandForm.full_bottle_sale_price;
+    const regular = this.brandForm.full_bottle_price || this.form.price_original;
+    if (sale !== null && sale !== undefined && (sale as any) !== '') {
+      const saleNum = Number(sale);
+      const regularNum = Number(regular) || 0;
+      if (!Number.isFinite(saleNum) || saleNum <= 0) {
+        return 'Sale price for full bottle must be a positive number';
+      }
+      if (regularNum <= 0 || saleNum >= regularNum) {
+        return `Sale price for full bottle must be lower than the regular price (currently ${regularNum} EGP)`;
+      }
+    }
+    return null;
+  }
+
   async save() {
     this.error = '';
+    const salePriceError = this.validateSalePrices();
+    if (salePriceError) {
+      this.error = salePriceError;
+      this.cdr.markForCheck();
+      return;
+    }
     try {
       if (this.isEdit && this.editId) {
         await this.svc.update(this.editId, this.form);
@@ -612,13 +664,25 @@ export class Perfumes implements OnInit {
       } else {
         const brand = this.brands.find(b => b.id === Number(this.form.brand_id));
         await this.svc.addBottle(this.form, this.costPrice, brand?.name || 'Unknown');
+
+        // addBottle()'s RPC only sets inventory/pricing columns — the decant discount
+        // (editable at creation too) needs a follow-up update once we know the new
+        // row's id, since the RPC doesn't accept or return it.
+        if (brand?.id && this.form.decant_sale_percent != null) {
+          const newId = await this.svc.getIdByBrandId(brand.id);
+          if (newId) {
+            await this.svc.update(newId, { decant_sale_percent: this.form.decant_sale_percent });
+          }
+        }
+
         // The cost and full-bottle sale price entered here also become the brand's
         // full-bottle catalog values, so they never have to be typed in again on
         // the Brands panel.
-        if (brand?.id && (this.costPrice || this.form.price_original)) {
+        if (brand?.id && (this.costPrice || this.form.price_original || this.brandForm.full_bottle_sale_price)) {
           await this.brandSvc.update(brand.id, {
             cost_price: this.costPrice || undefined,
             full_bottle_price: this.form.price_original || undefined,
+            full_bottle_sale_price: this.brandForm.full_bottle_sale_price ?? undefined,
           });
         }
       }
