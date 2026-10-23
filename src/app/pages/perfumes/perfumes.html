@@ -281,6 +281,10 @@
           <label class="form-label">Description</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.description" placeholder="Short product description for the website"></textarea>
         </div>
+        <div class="col-12">
+          <label class="form-label">Arabic Perfume / Brand Name <span class="text-muted">(optional)</span></label>
+          <input class="form-control" dir="rtl" [(ngModel)]="brandForm.arabic_name" placeholder="اسم العطر بالعربية">
+        </div>
         <div class="col-12" *ngIf="isEdit">
           <label class="form-label">Fragrance Notes</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.notes" placeholder="e.g. Top: Bergamot, Lemon | Middle: Rose, Jasmine | Base: Musk, Amber"></textarea>

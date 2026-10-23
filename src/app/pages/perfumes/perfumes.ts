@@ -73,7 +73,7 @@ export class Perfumes implements OnInit {
   };
 
   // --- Brand-level full-bottle catalog (shared with the Brands panel) ---
-  brandForm: Partial<Brand> = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
+  brandForm: Partial<Brand> = { arabic_name: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
   brandImages: BrandImage[] = [];
   brandImagesLoading = false;
   uploadingImage = false;
@@ -497,7 +497,7 @@ export class Perfumes implements OnInit {
     this.selectedCompanyId = brand?.company_id || null;
     this.costPrice = Number(source?.cost?.amount) || 0;
     this.brandImages = [];
-    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
+    this.brandForm = { arabic_name: brand?.arabic_name || '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
     this.form = {
       brand_id: p.brand_id, full_ml: source?.full_ml ?? p.full_ml, current_ml: source?.full_ml ?? p.full_ml,
       bought_from: p.bought_from || '', price_original: p.price_original,
@@ -518,7 +518,7 @@ export class Perfumes implements OnInit {
     this.selectedCompanyId = null;
     this.costPrice = 0;
     this.brandImages = [];
-    this.brandForm = { cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
+    this.brandForm = { arabic_name: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null };
     this.form = {
       brand_id: undefined, full_ml: 0, current_ml: 0,
       bought_from: '', price_original: 0,
@@ -545,6 +545,7 @@ export class Perfumes implements OnInit {
       decant_sale_percent: p.decant_sale_percent ?? null,
     };
     this.brandForm = {
+      arabic_name: brand?.arabic_name || '',
       cost_price: brand?.cost_price ?? null,
       full_bottle_price: brand?.full_bottle_price ?? null,
       full_bottle_sale_price: brand?.full_bottle_sale_price ?? null,

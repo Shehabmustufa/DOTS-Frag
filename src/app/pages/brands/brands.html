@@ -13,7 +13,8 @@
 
   <div *ngIf="showAddCompanyForm && !loading" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
     <h5>Add New Company</h5>
-    <input class="form-control mb-2" [(ngModel)]="newCompany.name" placeholder="Company name">
+    <input class="form-control mb-2" [(ngModel)]="newCompany.name" placeholder="Company name (English)">
+    <input class="form-control mb-2" dir="rtl" [(ngModel)]="newCompany.arabic_name" placeholder="اسم الشركة بالعربية (optional)">
     <input class="form-control mb-2" [(ngModel)]="newCompany.country" placeholder="Country">
     <button class="btn btn-primary" (click)="addCompany()">Add</button>
     <button class="btn btn-secondary" (click)="showAddCompanyForm = false">Cancel</button>
@@ -22,7 +23,7 @@
   <div *ngFor="let company of companies" [hidden]="loading" style="background: white; margin-bottom: 16px; border-radius: 8px; overflow: hidden;">
     <div style="padding: 16px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
       <div (click)="toggleCompany(company.id!)" style="flex: 1; cursor: pointer;">
-        <h5 style="margin: 0;">{{ company.name }}</h5>
+        <h5 style="margin: 0;">{{ company.name }}<span *ngIf="company.arabic_name" class="text-muted ms-2">({{ company.arabic_name }})</span></h5>
         <small style="color: #888;">{{ company.country }}</small>
       </div>
       <div style="display: flex; gap: 6px; align-items: center;">
@@ -35,7 +36,7 @@
     <div *ngIf="expandedCompanyId === company.id" style="padding: 16px; border-top: 1px solid #e0e0e0;">
       <div *ngFor="let brand of getCompanyBrands(company.id!)" style="padding: 12px; background: #fafafa; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <strong>{{ brand.name }}</strong>
+          <strong>{{ brand.name }}</strong><span *ngIf="brand.arabic_name" class="text-muted ms-2">({{ brand.arabic_name }})</span>
           <span *ngIf="brand.full_bottle_price" class="badge bg-info text-dark ms-2">Full bottle: {{ brand.full_bottle_sale_price || brand.full_bottle_price }} EGP</span>
           <p *ngIf="brand.description" style="margin: 4px 0 0 0; color: #888; font-size: 12px;">{{ brand.description }}</p>
           <p *ngIf="getInventory(brand.id!) as inv" style="margin: 4px 0 0 0; color: #6c757d; font-size: 12px;">
@@ -66,6 +67,10 @@
       <div class="mb-3">
         <label class="form-label">Brand Name</label>
         <input class="form-control" [(ngModel)]="form.name" placeholder="e.g. Khamrah">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Arabic Perfume / Brand Name <span class="text-muted">(optional)</span></label>
+        <input class="form-control" dir="rtl" [(ngModel)]="form.arabic_name" placeholder="اسم العطر بالعربية">
       </div>
       <div class="mb-3">
         <label class="form-label">Description</label>
@@ -157,6 +162,10 @@
       <div class="mb-3">
         <label class="form-label">Company Name</label>
         <input class="form-control" [(ngModel)]="companyForm.name">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Arabic Company Name <span class="text-muted">(optional)</span></label>
+        <input class="form-control" dir="rtl" [(ngModel)]="companyForm.arabic_name" placeholder="اسم الشركة بالعربية">
       </div>
       <div class="mb-3">
         <label class="form-label">Country</label>

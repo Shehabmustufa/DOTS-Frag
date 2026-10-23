@@ -403,13 +403,29 @@ export class Orders implements OnInit {
 
   orderTotal(o: Order): number {
     if (!o.order_items || o.order_status === 'cancelled') return 0;
-    const subtotal = o.order_items.reduce((sum, item) => {
-      if (item.is_refundable_bottle) {
-        return sum + (Number(item.bottle_sale_price) - Number(item.bottle_cost_price)) * item.quantity;
-      }
-      return sum + Number(item.unit_sale_price) * item.quantity;
+    return Math.round(this.orderSubtotal(o) * (1 - (Number(o.discount_percentage) || 0) / 100) + (Number(o.delivery_fee) || 0));
+  }
+
+  orderSubtotal(o: Order): number {
+    return (o.order_items || []).reduce((sum, item) => {
+      const unitPrice = this.itemUnitPrice(item);
+      return sum + unitPrice * item.quantity;
     }, 0);
-    return Math.round(subtotal * (1 - (Number(o.discount_percentage) || 0) / 100));
+  }
+
+  discountAmount(o: Order): number {
+    return Math.round(this.orderSubtotal(o) * (Number(o.discount_percentage) || 0) / 100);
+  }
+
+  itemUnitPrice(item: OrderItem): number {
+    if (item.is_refundable_bottle) return Number(item.bottle_sale_price) || 0;
+    if (Number(item.unit_sale_price)) return Number(item.unit_sale_price);
+    const perfume = item.perfume;
+    if (!perfume) return 0;
+    if (item.is_full_bottle) return Number(perfume.price_original) || 0;
+    if (item.decant_size_ml === 5) return Number(perfume.price_5ml) || 0;
+    if (item.decant_size_ml === 10) return Number(perfume.price_10ml) || 0;
+    return Number(perfume.price_30ml) || 0;
   }
 
   // perfumes.full_ml is the SUM of every bottle ever bought for that perfume

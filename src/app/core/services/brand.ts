@@ -5,6 +5,7 @@ import { compressImage } from '../utils/image';
 export interface Brand {
   id?: number;
   name: string;
+  arabic_name?: string | null;
   company_id: number;
   company?: { name: string };
   description?: string;
@@ -59,6 +60,7 @@ export class BrandService {
     if (!b.company_id) throw new Error('Company is required');
     const payload = {
       name: String(b.name).trim(),
+      arabic_name: b.arabic_name?.trim() || null,
       company_id: Number(b.company_id),
       description: b.description || null,
       gender: b.gender || 'unisex',
@@ -73,6 +75,7 @@ export class BrandService {
   async update(id: number, b: Partial<Brand>): Promise<void> {
     const payload: any = {};
     if (b.name !== undefined) payload.name = String(b.name).trim();
+    if (b.arabic_name !== undefined) payload.arabic_name = b.arabic_name?.trim() || null;
     if (b.company_id !== undefined) payload.company_id = Number(b.company_id);
     if (b.description !== undefined) payload.description = b.description || null;
     if (b.gender !== undefined) payload.gender = b.gender;

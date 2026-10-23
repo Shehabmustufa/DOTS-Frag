@@ -26,8 +26,8 @@ export class Brands implements OnInit {
   editId: number | null = null;
   selectedCompanyId: number | null = null;
 
-  form: Partial<Brand> = { name: '', company_id: undefined, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null, is_summer: false, is_winter: false };
-  newCompany: Partial<Company> = { name: '', country: '' };
+  form: Partial<Brand> = { name: '', arabic_name: '', company_id: undefined, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null, is_summer: false, is_winter: false };
+  newCompany: Partial<Company> = { name: '', arabic_name: '', country: '' };
 
   brandImages: BrandImage[] = [];
   brandImagesLoading = false;
@@ -37,7 +37,7 @@ export class Brands implements OnInit {
   showCompanyModal = false;
   isEditCompany = false;
   editCompanyId: number | null = null;
-  companyForm: Partial<Company> = { name: '', country: '' };
+  companyForm: Partial<Company> = { name: '', arabic_name: '', country: '' };
 
   constructor(
     private brandSvc: BrandService,
@@ -82,7 +82,7 @@ export class Brands implements OnInit {
     try {
       await this.companySvc.create(this.newCompany);
       this.showAddCompanyForm = false;
-      this.newCompany = { name: '', country: '' };
+      this.newCompany = { name: '', arabic_name: '', country: '' };
       await this.load();
     } catch (e: any) {
       this.error = e?.message || 'Failed to add company';
@@ -93,7 +93,7 @@ export class Brands implements OnInit {
   openEditCompany(c: Company) {
     this.isEditCompany = true;
     this.editCompanyId = c.id!;
-    this.companyForm = { name: c.name, country: c.country || '' };
+    this.companyForm = { name: c.name, arabic_name: c.arabic_name || '', country: c.country || '' };
     this.showCompanyModal = true;
   }
 
@@ -132,7 +132,7 @@ export class Brands implements OnInit {
     this.editId = null;
     this.selectedCompanyId = companyId;
     this.brandImages = [];
-    this.form = { name: '', company_id: companyId, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null, is_summer: false, is_winter: false };
+    this.form = { name: '', arabic_name: '', company_id: companyId, description: '', cost_price: null, full_bottle_price: null, full_bottle_sale_price: null, gender: 'unisex', unisex_lean: null, is_summer: false, is_winter: false };
     this.showModal = true;
   }
 
@@ -141,7 +141,7 @@ export class Brands implements OnInit {
     this.editId = b.id!;
     this.selectedCompanyId = b.company_id || null;
     this.form = {
-      name: b.name, company_id: b.company_id, description: b.description,
+      name: b.name, arabic_name: b.arabic_name || '', company_id: b.company_id, description: b.description,
       cost_price: b.cost_price ?? null, full_bottle_price: b.full_bottle_price ?? null, full_bottle_sale_price: b.full_bottle_sale_price ?? null,
       gender: b.gender || 'unisex', unisex_lean: b.unisex_lean ?? null,
       is_summer: b.is_summer ?? false, is_winter: b.is_winter ?? false,

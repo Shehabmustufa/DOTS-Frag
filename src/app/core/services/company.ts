@@ -4,6 +4,7 @@ import { SupabaseService } from './supabase';
 export interface Company {
   id?: number;
   name: string;
+  arabic_name?: string | null;
   country?: string;
   created_at?: string;
 }
@@ -21,7 +22,7 @@ export class CompanyService {
   }
 
   async create(c: Partial<Company>): Promise<void> {
-    const payload = { name: String(c.name).trim(), country: c.country || null };
+    const payload = { name: String(c.name).trim(), arabic_name: c.arabic_name?.trim() || null, country: c.country || null };
     const { error } = await this.supa.client.from(this.table).insert([payload]);
     if (error) throw error;
   }
@@ -29,6 +30,7 @@ export class CompanyService {
   async update(id: number, c: Partial<Company>): Promise<void> {
     const payload: any = {};
     if (c.name !== undefined) payload.name = String(c.name).trim();
+    if (c.arabic_name !== undefined) payload.arabic_name = c.arabic_name?.trim() || null;
     if (c.country !== undefined) payload.country = c.country || null;
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
     if (error) throw error;

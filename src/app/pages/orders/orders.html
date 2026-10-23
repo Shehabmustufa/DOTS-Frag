@@ -147,6 +147,31 @@
               </tr>
               <tr *ngIf="expandedOrderId === o.id" class="expanded-row">
                 <td colspan="9">
+                  <div class="order-details-grid mb-3">
+                    <section>
+                      <h6>Customer</h6>
+                      <div><strong>Order:</strong> #{{ o.id }}</div>
+                      <div><strong>Created:</strong> {{ o.created_at | date:'medium' }}</div>
+                      <div>{{ o.customer?.name || '—' }}</div>
+                      <div>{{ o.customer?.mobile_number || '—' }}</div>
+                      <div *ngIf="o.customer?.email">{{ o.customer?.email }}</div>
+                    </section>
+                    <section>
+                      <h6>Delivery</h6>
+                      <div><strong>Governorate:</strong> {{ o.governorate || '—' }}</div>
+                      <div><strong>City / Area:</strong> {{ o.city_area || '—' }}</div>
+                      <div><strong>Address:</strong> {{ o.street_address || o.customer?.location || '—' }}</div>
+                      <div *ngIf="o.landmark"><strong>Landmark:</strong> {{ o.landmark }}</div>
+                    </section>
+                    <section>
+                      <h6>Financial summary</h6>
+                      <div><strong>Subtotal:</strong> {{ orderSubtotal(o) | currency:'EGP':'symbol':'1.0-0' }}</div>
+                      <div><strong>Discount:</strong> {{ discountAmount(o) | currency:'EGP':'symbol':'1.0-0' }}</div>
+                      <div><strong>Delivery:</strong> {{ (o.delivery_fee || 0) | currency:'EGP':'symbol':'1.0-0' }}</div>
+                      <div><strong>Total:</strong> {{ orderTotal(o) | currency:'EGP':'symbol':'1.0-0' }}</div>
+                      <div><strong>Payment:</strong> {{ o.payment_method || '—' }} · {{ o.is_money_collected ? 'Collected' : 'Not collected' }}</div>
+                    </section>
+                  </div>
                   <div class="order-items-detail">
                     <strong>Items:</strong>
                     <ul class="mb-0 mt-2">
@@ -156,7 +181,7 @@
                           <ng-container *ngIf="item.bottle_cost_price">
                             (Profit: {{ (item.bottle_sale_price! - item.bottle_cost_price!) * item.quantity | currency:'EGP':'symbol':'1.0-0' }})
                           </ng-container>
-                          × {{ item.quantity }}
+                          × {{ item.quantity }} · {{ itemUnitPrice(item) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}
                           <span *ngIf="!item.bottle_cost_price" class="d-inline-flex align-items-center gap-1 ms-2">
                             <span class="badge bg-warning text-dark">cost price needed</span>
                             <input type="number" class="form-control form-control-sm" style="width:110px;"
@@ -171,7 +196,7 @@
                           </span>
                         </span>
                         <span *ngIf="!item.is_refundable_bottle">
-                          {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }}
+                          {{ item.perfume?.brand?.name }} — {{ item.is_full_bottle ? 'Full Bottle' : item.decant_size_ml + 'ml' }} × {{ item.quantity }} · {{ itemUnitPrice(item) * item.quantity | currency:'EGP':'symbol':'1.0-0' }}
                         </span>
                       </li>
                     </ul>

@@ -44,11 +44,15 @@ export interface Order {
   source?: 'dashboard' | 'website';
   payment_method?: string | null;
   delivery_fee?: number | null;
+  governorate?: string | null;
+  city_area?: string | null;
+  street_address?: string | null;
+  landmark?: string | null;
   customer_note?: string | null;
   /** When inventory was deducted. NULL = website request not yet confirmed. */
   confirmed_at?: string | null;
   created_at?: string;
-  customer?: { name: string; mobile_number: string };
+  customer?: { name: string; mobile_number: string; email?: string | null; location?: string | null };
   order_items?: OrderItem[];
   order_packaging?: OrderPackaging[];
 }
@@ -57,7 +61,7 @@ export interface Order {
 export class OrderService {
   constructor(private supa: SupabaseService) {}
 
-  private readonly selectQuery = `*, customer:customers(name, mobile_number), order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name))), order_packaging(*, packaging_item:packaging_items(id, name, type, remaining_count, max_count))`;
+  private readonly selectQuery = `*, customer:customers(name, mobile_number, email, location), order_items(*, perfume:perfumes(price_5ml, price_10ml, price_30ml, price_original, full_ml, brand:brands(name)), brand:brands(name, company:companies(name))), order_packaging(*, packaging_item:packaging_items(id, name, type, remaining_count, max_count))`;
 
   async getAll(): Promise<Order[]> {
     const { data, error } = await this.supa.client

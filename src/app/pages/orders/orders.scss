@@ -128,6 +128,30 @@
     background: #f8f9fa;
     padding: 16px 20px !important;
   }
+
+  .order-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+
+    section {
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    h6 {
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+  }
+
+  @media (max-width: 800px) {
+    .order-details-grid { grid-template-columns: 1fr; }
+  }
 }
 
 .order-items-detail {

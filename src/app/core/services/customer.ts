@@ -5,6 +5,7 @@ export interface Customer {
   id?: number;
   name: string;
   mobile_number: string;
+  email?: string | null;
   location: string;
   found_via?: string;
   created_at?: string;
@@ -26,6 +27,7 @@ export class CustomerService {
     const payload = {
       name: String(c.name).trim(),
       mobile_number: String(c.mobile_number).trim(),
+      email: c.email?.trim() || null,
       location: String(c.location).trim(),
       found_via: c.found_via || 'direct',
     };
@@ -37,6 +39,7 @@ export class CustomerService {
     const payload: any = {};
     if (c.name !== undefined) payload.name = String(c.name).trim();
     if (c.mobile_number !== undefined) payload.mobile_number = String(c.mobile_number).trim();
+    if (c.email !== undefined) payload.email = c.email?.trim() || null;
     if (c.location !== undefined) payload.location = String(c.location).trim();
     if (c.found_via !== undefined) payload.found_via = c.found_via;
     const { error } = await this.supa.client.from(this.table).update(payload).eq('id', id);
