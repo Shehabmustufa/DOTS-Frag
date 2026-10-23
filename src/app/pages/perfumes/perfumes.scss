@@ -158,6 +158,39 @@
   &:hover .expand-icon {
     color: #3b82f6;
   }
+
+  &.row-on-sale {
+    box-shadow: inset 3px 0 0 #ff9800;
+    background: rgba(255, 152, 0, 0.06);
+  }
+}
+
+.sale-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: #ff9800;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.price-old {
+  display: block;
+  font-size: 11px;
+  color: #9e9e9e;
+  text-decoration: line-through;
+  line-height: 1.1;
+}
+
+.price-sale {
+  display: block;
+  font-weight: 700;
+  color: #e65100;
+  line-height: 1.2;
 }
 
 .bottles-expanded-row {

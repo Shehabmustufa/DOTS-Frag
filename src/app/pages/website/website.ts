@@ -68,6 +68,7 @@ export class Website {
       this.announcements = announcements;
       this.settings.logo_shape ||= 'circle';
       this.settings.logo_size ||= 56;
+      this.settings.on_sale_section_enabled ??= true;
       this.banners = banners;
       if (settings.logo_url) {
         this.logoPreview = this.settingsService.getPublicUrl(settings.logo_url);
@@ -121,6 +122,7 @@ export class Website {
         whatsapp_number: this.settings.whatsapp_number,
         logo_shape: this.settings.logo_shape,
         logo_size: this.settings.logo_size,
+        on_sale_section_enabled: this.settings.on_sale_section_enabled,
       });
       alert('Settings saved!');
     } catch (e: any) {

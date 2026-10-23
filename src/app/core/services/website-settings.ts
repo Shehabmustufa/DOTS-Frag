@@ -15,6 +15,8 @@ export interface WebsiteSettings {
   logo_shape: 'circle' | 'square' | 'rectangle';
   /** Header logo height in px (20–80; clamped to the header on the site). */
   logo_size: number;
+  /** Shows/hides the homepage's On Sale section without touching sale prices or any other section. */
+  on_sale_section_enabled: boolean;
   updated_at: string;
 }
 
@@ -46,6 +48,7 @@ export class WebsiteSettingsService {
     if (settings.logo_size !== undefined) {
       payload.logo_size = Math.min(Math.max(Math.round(Number(settings.logo_size) || 56), 20), 80);
     }
+    if (settings.on_sale_section_enabled !== undefined) payload.on_sale_section_enabled = !!settings.on_sale_section_enabled;
 
     const { error } = await this.supa.client
       .from('website_settings')
